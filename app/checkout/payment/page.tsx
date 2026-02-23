@@ -1,6 +1,5 @@
 'use client';
 
-// FIXED: Added useEffect to React imports and getDoc to Firebase imports
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShoppingCart, ChevronDown, Play, Loader2, Landmark, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -18,7 +17,7 @@ function PaymentContent() {
   const titles = searchParams.get('title')?.split(', ') || [];
   const price = searchParams.get('price') || '0';
   
-  // --- DYNAMIC STUDIO UPI DETAILS (Replaced Hardcoded strings with State) ---
+  // --- DYNAMIC STUDIO UPI DETAILS ---
   const [studioUpiId, setStudioUpiId] = useState("tattootattva@ybl"); 
   const [studioName, setStudioName] = useState("Tattoo Tattva");
   const [isFetchingUpi, setIsFetchingUpi] = useState(true);
@@ -30,11 +29,9 @@ function PaymentContent() {
   const [step, setStep] = useState<'SELECT' | 'UPI_GATEWAY'>('SELECT');
   const [hasClickedPay, setHasClickedPay] = useState(false);
 
-  // FIXED: DYNAMIC UPI FETCHING LOGIC
   useEffect(() => {
     const fetchPaymentDestination = async () => {
         try {
-            // 1. Check if an Artist was selected (either passed in URL or stored in browser)
             const artistId = searchParams.get('artistId') || localStorage.getItem('selectedArtistId');
             
             if (artistId) {
@@ -43,11 +40,10 @@ function PaymentContent() {
                     setStudioUpiId(artistSnap.data().assignedUpiId);
                     setStudioName(`${artistSnap.data().name} (Tattoo Tattva)`);
                     setIsFetchingUpi(false);
-                    return; // Exit early if we successfully found the artist's bank
+                    return; 
                 }
             }
             
-            // 2. FALLBACK: Route to the Studio's Default Bank Account
             const bankSnap = await getDoc(doc(db, 'studio_settings', 'payout_banks'));
             if (bankSnap.exists() && bankSnap.data().accounts) {
                 const defaultBank = bankSnap.data().accounts.find((b: any) => b.isDefault);
@@ -66,7 +62,7 @@ function PaymentContent() {
     fetchPaymentDestination();
   }, [searchParams]);
 
-  // Dynamic Intent URI based on the fetched database details
+  // Dynamic Intent URI
   const upiIntentLink = `upi://pay?pa=${studioUpiId}&pn=${encodeURIComponent(studioName)}&am=${price}&cu=INR&tn=${encodeURIComponent(`Design Codes: ${codes.join(', ')}`)}`;
 
   // --- HANDLERS ---
@@ -97,7 +93,8 @@ function PaymentContent() {
             valid: true
         });
 
-        router.push(`/checkout/success?token_id=${ticketId}`);
+        // ✅ FIX #2: Explicitly pass the 'status' parameter to the Success page URL!
+        router.push(`/checkout/success?token_id=${ticketId}&status=${finalStatus}&title=${titles.join(', ')}&codes=${codes.join('-')}&price=${price}`);
     } catch (error) {
         console.error("Error:", error);
         setIsGenerating(false);
@@ -120,7 +117,6 @@ function PaymentContent() {
     </button>
   );
 
-  // Wait for Firebase to retrieve the correct bank account before showing UI
   if (isFetchingUpi) {
       return (
           <div className="min-h-screen bg-white flex flex-col items-center justify-center">
@@ -133,7 +129,6 @@ function PaymentContent() {
   return (
     <div className="min-h-screen bg-white font-sans px-[15px] pt-[40px] pb-20">
       
-      {/* HEADER */}
       <header className="mb-[40px]">
         <h1 style={{ fontFamily: 'var(--font-abhaya)', fontWeight: 800, fontSize: '40px', color: '#19191B', lineHeight: 1 }}>
             TATTOO<br/>TATTVA
@@ -141,13 +136,9 @@ function PaymentContent() {
       </header>
 
       <AnimatePresence mode="wait">
-          {/* =========================================
-              VIEW 1: SELECTION SCREEN 
-              ========================================= */}
           {step === 'SELECT' && (
               <motion.div key="select-view" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                   
-                  {/* ORDER SUMMARY CARD */}
                   <section className="relative rounded-[6px] mb-[60px]" style={{ boxShadow: '4px 4px 10px rgba(0,0,0,0.1)' }}>
                     <div className="absolute inset-0 rounded-[6px]" style={{ background: 'linear-gradient(225deg, #A5A5A5, #FFFFFF)', padding: '1px' }} />
                     <div className="relative bg-white rounded-[5px] p-5">
@@ -180,13 +171,11 @@ function PaymentContent() {
                     </div>
                   </section>
 
-                  {/* PAYMENT BUTTONS */}
                   <section className="flex flex-col gap-[15px]">
                     <PaymentButton method="UPI" label="Phone Pe/UPI" subtext="Choose your preferred app" isActive={selectedMethod === 'UPI'} />
                     <PaymentButton method="CASH" label="Pay Via Cash" subtext="Pay at the studio counter" isActive={selectedMethod === 'CASH'} />
                   </section>
 
-                  {/* PROCEED BUTTON */}
                   <div className="mt-10">
                       <button 
                         onClick={handleInitialConfirm}
@@ -199,9 +188,6 @@ function PaymentContent() {
               </motion.div>
           )}
 
-          {/* =========================================
-              VIEW 2: NATIVE UPI GATEWAY 
-              ========================================= */}
           {step === 'UPI_GATEWAY' && (
               <motion.div key="gateway-view" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col">
                   
@@ -210,11 +196,9 @@ function PaymentContent() {
                       <h2 className="text-[22px] font-bold text-[#16161B] font-inter leading-tight">Secure Checkout</h2>
                   </div>
 
-                  {/* Payment Details Card */}
                   <div className="w-full bg-[#FAFAFA] border border-[#EAEAEA] rounded-[12px] p-5 mb-8">
                       <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
                           <span className="text-[14px] text-[#666666] font-inter">Paying To</span>
-                          {/* DYNAMIC STUDIO/ARTIST NAME */}
                           <span className="text-[15px] font-bold text-[#16161B] font-inter">{studioName}</span>
                       </div>
                       <div className="flex justify-between items-end mb-4">
@@ -231,16 +215,17 @@ function PaymentContent() {
                       </div>
                   </div>
 
-                  {/* STEP 1: OPEN UPI APP (Now powered by dynamic upiIntentLink) */}
-                  <a 
-                      href={upiIntentLink}
-                      onClick={() => setHasClickedPay(true)}
+                  {/* ✅ FIX #1: Replaced <a> tag with <button> utilizing window.location.href to bypass browser security blocks */}
+                  <button 
+                      onClick={() => {
+                          setHasClickedPay(true);
+                          window.location.href = upiIntentLink; 
+                      }}
                       className="w-full h-[60px] bg-[#16161B] text-white rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg uppercase tracking-wide mb-4"
                   >
                       1. OPEN UPI APP TO PAY
-                  </a>
+                  </button>
 
-                  {/* STEP 2: GENERATE TICKET */}
                   <button 
                       onClick={() => generateFinalTicket('UPI')}
                       disabled={!hasClickedPay || isGenerating}
