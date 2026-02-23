@@ -5,13 +5,15 @@ import "./globals.css";
 // 1. IMPORT GOOGLE FONTS
 const inter = Inter({ 
   subsets: ["latin"], 
-  variable: "--font-inter" 
+  variable: "--font-inter",
+  display: 'swap',
 });
 
 const abhaya = Abhaya_Libre({ 
-  weight: ['400', '500', '600', '700', '800'], // We need 800 for ExtraBold
+  weight: ['400', '500', '600', '700', '800'], 
   subsets: ["latin"], 
-  variable: "--font-abhaya" 
+  variable: "--font-abhaya",
+  display: 'swap',
 });
 
 // 2. MOBILE VIEWPORT LOCK
@@ -26,6 +28,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Tattoo Tattva",
   description: "Automated Studio Management Engine",
+  manifest: "/manifest.json", 
 };
 
 // 3. INJECT FONTS INTO THE BODY
@@ -34,9 +37,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // FIX: Added suppressHydrationWarning to ignore browser extension injections
   return (
-    <html lang="en">
-      {/* Notice both font variables are added here */}
+    <html lang="en" suppressHydrationWarning>
+      {/* Notice both font variables are added here so Tailwind can see them */}
       <body className={`${inter.variable} ${abhaya.variable} antialiased`}>
         {children}
       </body>

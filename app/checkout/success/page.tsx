@@ -4,66 +4,87 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import QRCode from 'react-qr-code';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, onSnapshot } from "firebase/firestore"; 
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Send, Home } from 'lucide-react';
 
 function TicketContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const titles = (searchParams.get('title') || 'Custom Design').split(', ');
-  const codes = (searchParams.get('codes') || '0000').split('-');
-  const price = searchParams.get('price') || '0';
-  const qrValue = searchParams.get('token_id') || searchParams.get('id') || ''; 
-
-  // --- STATE ---
-  const [ticketStatus, setTicketStatus] = useState(searchParams.get('status') || 'PAID');
-  const isCash = ticketStatus.toUpperCase() === 'PAY_AT_COUNTER' || ticketStatus.toUpperCase() === 'CASH';
+  // Robust Parameter Parsing (Prevents crashes if data is missing)
+  const titleParam = searchParams.get('title');
+  const titles = titleParam ? titleParam.split(', ') : ['Custom Design'];
   
-  // NEW: UI View State (TICKET -> PROMPT -> PHONE_INPUT)
+  const codeParam = searchParams.get('codes');
+  const codes = codeParam ? codeParam.split('-') : ['0000'];
+  
+  const price = searchParams.get('price') || '0';
+  const qrValue = searchParams.get('token_id') || searchParams.get('id') || '';
+  
+  // Initial Status from URL (Instant Feedback before DB loads)
+  const urlStatus = searchParams.get('status') || 'PAID';
+  const [ticketStatus, setTicketStatus] = useState(urlStatus);
+
+  // Determine UI State based on status
+  const isCash = ticketStatus === 'PAY_AT_COUNTER' || ticketStatus === 'CASH';
+  
+  // View State for After-Scan Flow
   const [viewState, setViewState] = useState<'TICKET' | 'PROMPT' | 'PHONE_INPUT'>('TICKET');
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  // 1. Live Listen for REDEMPTION
   useEffect(() => {
     if (!qrValue) return;
 
+    // Play Sound on entry
     const audio = new Audio('/sounds/ticket.mp3');
     audio.volume = 0.6;
-    audio.play().catch(() => {});
+    audio.play().catch((err) => console.log("Audio play failed", err));
 
+    // Listen to Firebase for status changes (e.g., Artist scans it)
     const unsub = onSnapshot(doc(db, "tickets", qrValue), (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
         
+        // Sync Status
         if (data.status) {
             setTicketStatus(data.status);
         }
 
-        // When scanned by artist, trigger the WhatsApp Flow instead of leaving
+        // If Artist scans it -> Trigger WhatsApp Flow
         if (data.status === 'REDEEMED' && viewState === 'TICKET') {
             setViewState('PROMPT');
-            localStorage.removeItem('tattoo_cart'); 
+            localStorage.removeItem('tattoo_cart'); // Clear cart now that it's done
         }
       }
     });
     return () => unsub(); 
   }, [qrValue, viewState]);
 
-  // NEW: Handle WhatsApp Sending
+  // 2. WhatsApp Logic
   const handleSendReceipt = () => {
       if(phoneNumber.length >= 10) {
-          // Format standard message
           const message = encodeURIComponent(`Thank you for choosing Tattoo Tattva! 🖤\n\nDesign: ${titles.join(', ')}\nCode: ${codes.join(', ')}\nAmount Paid: ₹${price}`);
-          // Open WhatsApp link
           window.open(`https://wa.me/91${phoneNumber}?text=${message}`, '_blank');
       }
-      // Return user to home feed
       router.push('/');
   };
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4 font-sans overflow-hidden relative">
+      
+      {/* Home Button (Issue 10 Consistency) - Only show on Ticket View */}
+      {viewState === 'TICKET' && (
+          <button 
+            onClick={() => router.push('/')} 
+            className="absolute top-6 left-6 text-white/50 hover:text-white transition-colors z-50 flex items-center gap-2"
+          >
+            <Home size={24} />
+            <span className="text-xs uppercase tracking-widest font-bold">Home</span>
+          </button>
+      )}
+
       <AnimatePresence mode='wait'>
             
             {/* VIEW 1: THE TICKET */}
@@ -75,8 +96,9 @@ function TicketContent() {
                     exit={{ scale: 0.8, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                     style={{ width: '350px', minHeight: '574px', backgroundColor: '#FFFFFF', position: 'relative', boxShadow: '4px 4px 10px rgba(0,0,0,0.25)' }}
-                    className="flex flex-col items-center pb-8"
+                    className="flex flex-col items-center pb-8 rounded-[12px] overflow-hidden" 
                 >
+                    {/* Cutouts */}
                     <div className="absolute -top-[28px] -left-[28px] w-[56px] h-[56px] bg-black rounded-full z-20" />
                     <div className="absolute -top-[28px] -right-[28px] w-[56px] h-[56px] bg-black rounded-full z-20" />
                     <div className="absolute -bottom-[28px] -left-[28px] w-[56px] h-[56px] bg-black rounded-full z-20" />
@@ -105,16 +127,23 @@ function TicketContent() {
                                 {titles.map((title, i) => (
                                     <div key={i} className="leading-tight">
                                         <p style={{ fontFamily: 'var(--font-inter)', fontSize: '10px', color: '#000000' }}>{i + 1}. Name - {title}</p>
-                                        <p style={{ fontFamily: 'var(--font-inter)', fontSize: '10px', color: '#000000' }}>&nbsp;&nbsp;&nbsp;&nbsp;Code - {codes[i]}</p>
+                                        <p style={{ fontFamily: 'var(--font-inter)', fontSize: '10px', color: '#000000' }}>&nbsp;&nbsp;&nbsp;&nbsp;Code - {codes[i] || '0000'}</p>
                                         {i === 0 && <p style={{ fontFamily: 'var(--font-inter)', fontSize: '10px', color: '#000000' }}>&nbsp;&nbsp;&nbsp;&nbsp;Amount - {price}/-</p>}
                                     </div>
                                 ))}
                             </div>
                         </div>
 
+                        {/* Status Badge */}
                         <div 
-                            style={{ width: '130px', height: '60px', borderRadius: '8px', marginTop: '25px', backgroundColor: isCash ? '#EAB308' : '#F74B33' }} 
-                            className="flex items-center justify-center shrink-0"
+                            style={{ 
+                                width: '130px', 
+                                height: '60px', 
+                                borderRadius: '8px', 
+                                marginTop: '25px', 
+                                backgroundColor: isCash ? '#EAB308' : '#F74B33' 
+                            }} 
+                            className="flex items-center justify-center shrink-0 shadow-sm"
                         >
                             <span style={{ fontFamily: 'var(--font-inter)', fontSize: isCash ? '15px' : '25px', fontWeight: 700, color: '#FFFFFF', textAlign: 'center', lineHeight: '1.1' }} className="uppercase tracking-wide">
                                 {isCash ? 'COLLECT CASH' : 'PAID'}
@@ -130,7 +159,7 @@ function TicketContent() {
                     key="prompt-card"
                     initial={{ scale: 0.9, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    className="w-[90%] max-w-[350px] bg-white rounded-[24px] p-8 flex flex-col items-center text-center"
+                    className="w-[90%] max-w-[350px] bg-white rounded-[24px] p-8 flex flex-col items-center text-center shadow-2xl"
                 >
                     <div className="w-[60px] h-[60px] bg-[#25D366]/10 rounded-full flex items-center justify-center mb-4">
                         <MessageCircle size={32} color="#25D366" />
@@ -139,10 +168,10 @@ function TicketContent() {
                     <p className="text-[14px] text-[#666666] font-inter mb-8">Would you like a digital receipt sent directly to your WhatsApp?</p>
                     
                     <div className="w-full flex flex-col gap-3">
-                        <button onClick={() => setViewState('PHONE_INPUT')} className="w-full h-[52px] bg-[#25D366] text-white rounded-[12px] font-bold text-[15px] font-inter shadow-[0_4px_14px_rgba(37,211,102,0.3)]">
+                        <button onClick={() => setViewState('PHONE_INPUT')} className="w-full h-[52px] bg-[#25D366] text-white rounded-[12px] font-bold text-[15px] font-inter shadow-[0_4px_14px_rgba(37,211,102,0.3)] hover:brightness-105 active:scale-95 transition-all">
                             Yes, send receipt
                         </button>
-                        <button onClick={() => router.push('/')} className="w-full h-[52px] bg-gray-100 text-[#666666] rounded-[12px] font-bold text-[15px] font-inter">
+                        <button onClick={() => router.push('/')} className="w-full h-[52px] bg-gray-100 text-[#666666] rounded-[12px] font-bold text-[15px] font-inter hover:bg-gray-200 active:scale-95 transition-all">
                             No, thanks
                         </button>
                     </div>
@@ -155,7 +184,7 @@ function TicketContent() {
                     key="phone-card"
                     initial={{ x: 50, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    className="w-[90%] max-w-[350px] bg-white rounded-[24px] p-8 flex flex-col items-center"
+                    className="w-[90%] max-w-[350px] bg-white rounded-[24px] p-8 flex flex-col items-center shadow-2xl"
                 >
                     <h2 className="text-[18px] font-bold text-[#16161B] font-inter self-start mb-6">Enter WhatsApp Number</h2>
                     
@@ -174,7 +203,7 @@ function TicketContent() {
                     <button 
                         onClick={handleSendReceipt}
                         disabled={phoneNumber.length < 10}
-                        className="w-full h-[52px] bg-[#25D366] text-white rounded-[12px] font-bold text-[15px] font-inter flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="w-full h-[52px] bg-[#25D366] text-white rounded-[12px] font-bold text-[15px] font-inter flex items-center justify-center gap-2 disabled:opacity-50 hover:brightness-105 active:scale-95 transition-all"
                     >
                         <Send size={18} /> Send & Finish
                     </button>
@@ -187,5 +216,5 @@ function TicketContent() {
 }
 
 export default function TicketPage() {
-  return (<Suspense fallback={<div>Loading...</div>}><TicketContent /></Suspense>);
+  return (<Suspense fallback={<div></div>}><TicketContent /></Suspense>);
 }

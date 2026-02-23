@@ -16,7 +16,9 @@ interface BankAccount {
   isDefault: boolean;
 }
 
-// FIXED: MOVED OUTSIDE THE MAIN COMPONENT TO PREVENT RE-RENDERING FOCUS LOSS
+// ----------------------------------------------------------------------
+// CRITICAL FIX: Component defined OUTSIDE to prevent keyboard focus loss
+// ----------------------------------------------------------------------
 const GradientInputWrapper = ({ children }: { children: React.ReactNode }) => (
   <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '9999px' }}>
     <div className="bg-[#FFFFFF] rounded-full overflow-hidden h-[48px] flex items-center">
@@ -40,6 +42,7 @@ export default function BankDetailsPage() {
   const [bankName, setBankName] = useState('');
   const [upiId, setUpiId] = useState(''); 
 
+  // 1. FETCH BANKS
   useEffect(() => {
     const fetchBankDetails = async () => {
       try {
@@ -58,6 +61,7 @@ export default function BankDetailsPage() {
     fetchBankDetails();
   }, []);
 
+  // 2. ADD NEW BANK
   const handleAddAccount = async () => {
     if (!accountName || !accountNumber || !ifscCode || !bankName || !upiId) return;
     setIsSaving(true);
@@ -68,8 +72,8 @@ export default function BankDetailsPage() {
       accountNumber,
       ifscCode: ifscCode.toUpperCase(),
       bankName,
-      upiId: upiId.toLowerCase(), 
-      isDefault: accounts.length === 0 
+      upiId: upiId.toLowerCase(), // Ensure lowercase for UPI standards
+      isDefault: accounts.length === 0 // First account is auto-default
     };
 
     const updatedAccounts = [...accounts, newAccount];
@@ -81,6 +85,7 @@ export default function BankDetailsPage() {
       });
 
       setAccounts(updatedAccounts);
+      // Reset Form
       setAccountName('');
       setAccountNumber('');
       setIfscCode('');
@@ -95,6 +100,7 @@ export default function BankDetailsPage() {
     }
   };
 
+  // 3. SET DEFAULT STUDIO ACCOUNT
   const handleSetDefault = async (id: string) => {
     const updatedAccounts = accounts.map(acc => ({
       ...acc,
@@ -106,8 +112,12 @@ export default function BankDetailsPage() {
     } catch (error) { console.error(error); }
   };
 
+  // 4. DELETE ACCOUNT
   const handleDelete = async (id: string) => {
+    if(!confirm("Remove this bank account?")) return;
+    
     const updatedAccounts = accounts.filter(acc => acc.id !== id);
+    // If we deleted the default, make the first available one the new default
     if (updatedAccounts.length > 0 && !updatedAccounts.some(acc => acc.isDefault)) {
         updatedAccounts[0].isDefault = true;
     }
@@ -120,6 +130,7 @@ export default function BankDetailsPage() {
   return (
     <div className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[100px]">
       
+      {/* HEADER */}
       <header className="flex items-center mb-[32px]">
         <button onClick={() => router.back()} className="p-2 -ml-2 mr-[8px] active:scale-90 transition-transform">
           <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -134,6 +145,7 @@ export default function BankDetailsPage() {
         </div>
       </header>
 
+      {/* SECURITY BADGE */}
       <div className="flex items-center gap-2 mb-[24px] px-2">
           <ShieldCheck size={18} className="text-[#22c55e]" />
           <span className="font-inter text-[12px] font-bold text-[#22c55e] uppercase tracking-wider">
@@ -146,6 +158,7 @@ export default function BankDetailsPage() {
       ) : (
           <div className="flex flex-col gap-[20px]">
               
+              {/* ACCOUNT LIST */}
               {accounts.map((acc) => (
                   <div key={acc.id} style={{ background: acc.isDefault ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0,0,0,0.05)' }}>
                       <div className="bg-[#FFFFFF] rounded-[15px] p-[20px] relative overflow-hidden">
@@ -187,6 +200,7 @@ export default function BankDetailsPage() {
                   </div>
               ))}
 
+              {/* ADD BUTTON */}
               {!isAddingMode && accounts.length < 4 && (
                   <button onClick={() => setIsAddingMode(true)} className="w-full h-[60px] border-2 border-dashed border-[#BDBDBD] rounded-[16px] flex items-center justify-center gap-2 text-[#666666] hover:border-[#16161B] hover:text-[#16161B] transition-colors active:scale-[0.98]">
                       <Plus size={20} />
@@ -194,8 +208,9 @@ export default function BankDetailsPage() {
                   </button>
               )}
 
+              {/* ADD FORM */}
               {isAddingMode && (
-                <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px' }} className="mt-4 shadow-xl">
+                <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px' }} className="mt-4 shadow-xl mb-12">
                     <div className="bg-[#FFFFFF] rounded-[15px] p-[24px] flex flex-col gap-[16px]">
                         <h2 className="font-inter text-[16px] font-bold text-[#16161B] mb-2">New Account Details</h2>
                         

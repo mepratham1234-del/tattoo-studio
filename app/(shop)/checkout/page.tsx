@@ -2,216 +2,257 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { QRCodeSVG } from 'qrcode.react'; 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { doc, setDoc, getDoc } from "firebase/firestore"; 
+import { db } from "@/lib/firebase";
 
 export default function Checkout() {
   const router = useRouter();
+  
+  // States
   const [cart, setCart] = useState<any[]>([]);
-  const [step, setStep] = useState<'review' | 'ticket'>('review');
-  const [ticketId, setTicketId] = useState('');
+  const [step, setStep] = useState<'review' | 'upi_gateway'>('review');
   const [showDesigns, setShowDesigns] = useState(false);
+  
+  // Database & Logic States
+  const [studioUpiId, setStudioUpiId] = useState("tattootattva@ybl"); 
+  const [studioName, setStudioName] = useState("Tattoo Tattva");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasClickedPay, setHasClickedPay] = useState(false);
 
+  // 1. Load Cart
   useEffect(() => {
     const savedCart = localStorage.getItem('tattoo_cart');
     if (savedCart) setCart(JSON.parse(savedCart));
     else router.push('/gallery');
   }, [router]);
 
-  // CRASH-PROOF MATH
+  // 2. Fetch Active UPI ID from Firebase
+  useEffect(() => {
+    const fetchPaymentDestination = async () => {
+        try {
+            const bankSnap = await getDoc(doc(db, 'studio_settings', 'payout_banks'));
+            if (bankSnap.exists() && bankSnap.data().accounts) {
+                const defaultBank = bankSnap.data().accounts.find((b: any) => b.isDefault);
+                if (defaultBank && defaultBank.upiId) {
+                    setStudioUpiId(defaultBank.upiId);
+                    setStudioName(defaultBank.accountName);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching UPI details:", error);
+        }
+    };
+    fetchPaymentDestination();
+  }, []);
+
+  // Safe Math Calculation
   const totalAmount = cart.reduce((sum, item) => {
       const priceVal = parseInt(String(item.price), 10);
       return sum + (isNaN(priceVal) ? 0 : priceVal);
   }, 0);
 
-  const handlePayment = () => {
-    setTicketId(`TKT-${Math.floor(1000 + Math.random() * 9000)}`);
-    localStorage.removeItem('tattoo_cart');
-    setStep('ticket');
+  const codes = cart.map(c => c.code);
+  const titles = cart.map(c => c.title || c.code);
+
+  // Dynamic Deep Link
+  const upiIntentLink = `upi://pay?pa=${studioUpiId}&pn=${encodeURIComponent(studioName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent(`Codes: ${codes.join(', ')}`)}`;
+
+  // THE NUCLEAR DEEP LINK CLICKER (Bypasses Safari/Chrome Blocks)
+  const handleUpiClick = () => {
+    setHasClickedPay(true);
+    const link = document.createElement('a');
+    link.href = upiIntentLink;
+    link.target = "_top"; 
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  // --- REVIEW / PAYMENT SCREEN (PIXEL PERFECT TO MOCKUP) ---
-  if (step === 'review') {
-    return (
-      <div className="min-h-screen bg-[#FFFFFF] font-sans relative pb-[80px]">
-        
-        {/* Hidden Back Button for easy navigation */}
-        <button onClick={() => router.back()} className="absolute top-[24px] left-[24px] text-[#16161B] opacity-50 hover:opacity-100">
-            <ArrowLeft size={24} />
-        </button>
+  const handlePaymentSelect = (method: 'UPI' | 'CASH') => {
+    if (method === 'UPI') {
+        setStep('upi_gateway'); 
+    } else {
+        generateFinalTicket('PAY_AT_COUNTER'); 
+    }
+  };
 
-        {/* 1. HEADER SECTION */}
-        <div className="pt-[60px] pl-[24px] mb-[40px]">
-            <h1 className="text-[40px] font-extrabold text-[#16161B] tracking-tight uppercase" style={{ fontFamily: 'var(--font-abhaya), serif', lineHeight: '1' }}>
-                TATTOO<br/>TATTVA
-            </h1>
-        </div>
+  // Connects securely to database and formats the success URL perfectly
+  const generateFinalTicket = async (status: 'PAID' | 'PAY_AT_COUNTER') => {
+    setIsGenerating(true);
+    const ticketId = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    try {
+        await setDoc(doc(db, "tickets", ticketId), {
+            items: cart.map((item) => ({
+                id: item.id,
+                code: item.code,
+                title: item.title || 'Unknown'
+            })),
+            totalPrice: totalAmount.toString(),
+            paymentMode: status === 'PAID' ? 'UPI' : 'CASH',
+            status: status,
+            createdAt: new Date().toISOString(),
+            valid: true
+        });
 
-        {/* 2. ORDER SUMMARY CARD */}
-        <div className="mx-[24px] mb-[40px] rounded-[9px]" style={{
-            background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)',
-            padding: '1px', // Creates the 1px gradient border
-            filter: 'drop-shadow(4px 4px 10px rgba(0, 0, 0, 0.1))' // Elevated shadow
-        }}>
-            <div className="bg-[#FFFFFF] rounded-[8px] p-[16px] w-full flex flex-col">
-                
-                {/* Row 1: Cart Info */}
-                <div className="flex items-center gap-[8px] mb-[8px]">
-                    {/* Solid Shopping Cart Icon */}
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#16161B" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M7 18C5.9 18 5.01 18.9 5.01 20C5.01 21.1 5.9 22 7 22C8.1 22 9 21.1 9 20C9 18.9 8.1 18 7 18ZM1 2V4H3L6.6 11.59L5.24 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.51C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C15.9 18 15.01 18.9 15.01 20C15.01 21.1 15.9 22 17 22C18.1 22 19 21.1 19 20C19 18.9 18.1 18 17 18Z" />
-                    </svg>
-                    <span className="font-inter text-[16px] font-normal text-[#16161B]">Items in Cart-{cart.length}</span>
-                </div>
+        // Exact routing to Success Page with all needed data
+        router.push(`/checkout/success?token_id=${ticketId}&status=${status}&title=${titles.join(', ')}&codes=${codes.join('-')}&price=${totalAmount}`);
+    } catch (error) {
+        console.error("Error:", error);
+        setIsGenerating(false);
+        alert("Failed to create ticket. Check connection.");
+    }
+  };
 
-                {/* Row 2: Code */}
-                <div className="mb-[8px]">
-                    <span className="font-inter text-[14px] font-normal text-[#16161B]">Code-{cart.map(c => c.code).join(', ')}</span>
-                </div>
-
-                {/* Row 3: Total Cost */}
-                <div className="mb-[8px]">
-                    <span className="font-inter text-[20px] font-bold text-[#F74B33]">Total Cost- {totalAmount}/-</span>
-                </div>
-
-                {/* Row 4: Check Design Toggle */}
-                <div className="flex items-center gap-[6px] cursor-pointer w-fit" onClick={() => setShowDesigns(!showDesigns)}>
-                    <span className="font-inter text-[14px] font-normal text-[#16161B]">Check you Design</span>
-                    {/* Small Red Downward Triangle */}
-                    <motion.svg animate={{ rotate: showDesigns ? 180 : 0 }} width="10" height="10" viewBox="0 0 24 24" fill="#F74B33">
-                        <path d="M4 8L12 16L20 8H4Z"/>
-                    </motion.svg>
-                </div>
-
-                {/* Hidden Designs Drawer */}
-                <AnimatePresence>
-                    {showDesigns && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="mt-[16px] pt-[16px] border-t border-gray-100 flex gap-[12px] overflow-x-auto no-scrollbar">
-                                {cart.map((item, index) => (
-                                    <div key={index} className="w-[64px] h-[64px] shrink-0 border border-gray-200 rounded-[8px] p-[4px] bg-white flex items-center justify-center">
-                                        <img src={item.img} alt={item.code} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        </div>
-
-        {/* 3. PAYMENT OPTION BUTTONS */}
-        <div className="px-[24px] flex flex-col gap-[16px]">
-            
-            {/* Option 1: Phone Pe/UPI (Active Red Gradient Border) */}
-            <div onClick={handlePayment} className="rounded-[10px] cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform" style={{
-                background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)',
-                padding: '2px', // 2px Border
-            }}>
-                <div className="bg-[#FFFFFF] rounded-[8px] py-[20px] px-[20px] flex justify-between items-center w-full h-full">
-                    <div className="flex flex-col gap-[4px]">
-                         <span className="font-inter text-[18px] font-bold text-[#16161B]">Phone Pe/UPI</span>
-                         <span className="font-inter text-[13px] font-normal text-[#16161B]">Choose your preferred app</span>
-                    </div>
-                    {/* Solid Black Play Icon / Triangle */}
-                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 2L12 9L2 16V2Z" fill="#16161B"/>
-                    </svg>
-                </div>
-            </div>
-
-            {/* Option 2: Pay Via Cash (Inactive Grey Gradient Border) */}
-            <div onClick={handlePayment} className="rounded-[10px] cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform" style={{
-                background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)',
-                padding: '2px', // 2px Border
-            }}>
-                <div className="bg-[#FFFFFF] rounded-[8px] py-[20px] px-[20px] flex justify-between items-center w-full h-full">
-                    <div className="flex flex-col gap-[4px]">
-                         <span className="font-inter text-[18px] font-bold text-[#16161B]">Pay Via Cash</span>
-                         <span className="font-inter text-[13px] font-normal text-[#16161B]">Pay at the studio counter</span>
-                    </div>
-                    {/* Solid Black Play Icon / Triangle */}
-                    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 2L12 9L2 16V2Z" fill="#16161B"/>
-                    </svg>
-                </div>
-            </div>
-
-        </div>
-      </div>
-    );
-  }
-
-  // --- TICKET SCREEN (QR CODE PAGE - PIXEL PERFECT) ---
   return (
-    <div className="min-h-screen bg-[#FFFFFF] p-[24px] flex flex-col items-center justify-center relative font-inter">
-        
-        {/* Optional Navigation */}
-        <button onClick={() => router.push('/gallery')} className="absolute top-[24px] left-[24px] text-[#16161B] opacity-50 hover:opacity-100">
-            <ArrowLeft size={24} />
+    <div className="min-h-screen bg-[#FFFFFF] font-sans relative pb-[80px]">
+      
+      {/* UNIFIED BRAND BACK BUTTON (Fixes Issue 10) */}
+      <div className="absolute top-[24px] left-[24px] z-50">
+        <button onClick={() => router.back()} className="p-2 -ml-2 active:scale-90 transition-transform">
+            <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
+            </svg>
         </button>
+      </div>
 
-        {/* TICKET WRAPPER (Handles the 1px gradient border, shadow, and cutouts) */}
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-[360px] relative mt-[20px]" style={{ 
-            filter: 'drop-shadow(4px 4px 10px rgba(0,0,0,0.15))' 
-        }}>
-            {/* Outer gradient background and cutout mask */}
-            <div style={{
-                background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)',
-                padding: '1px',
-                borderRadius: '12px',
-                // Webkit mask handles the two side semi-circle cutouts (12px radius) positioned at 130px from bottom
-                WebkitMaskImage: 'radial-gradient(circle at 0 calc(100% - 130px), transparent 12px, black 12.5px), radial-gradient(circle at 100% calc(100% - 130px), transparent 12px, black 12.5px)',
-                WebkitMaskComposite: 'source-in',
-                maskImage: 'radial-gradient(circle at 0 calc(100% - 130px), transparent 12px, black 12.5px), radial-gradient(circle at 100% calc(100% - 130px), transparent 12px, black 12.5px)',
-                maskComposite: 'intersect',
-            }}>
-                {/* Inner White Ticket Container */}
-                <div className="bg-[#FFFFFF] rounded-[11px] flex flex-col">
-                    
-                    {/* Top Section */}
-                    <div className="pt-[40px] px-[32px] pb-[32px] flex flex-col items-center">
-                        <h2 className="font-inter font-extrabold text-[22px] text-[#16161B] mb-[32px] text-center">Ticket for your tattoo</h2>
-                        
-                        {/* QR Code Container (Fills width, aspect square) */}
-                        <div className="w-[280px] h-[280px] max-w-full aspect-square bg-[#FFFFFF] flex items-center justify-center p-[8px]">
-                            {/* We embed the actual dynamic QR Code here */}
-                            <QRCodeSVG value={`TKT:${ticketId}|AMT:${totalAmount}`} size={280} width="100%" height="100%" bgColor="#FFFFFF" fgColor="#16161B" />
-                        </div>
-                    </div>
+      {/* 1. HEADER SECTION */}
+      <div className="pt-[60px] pl-[24px] mb-[40px]">
+          <h1 className="text-[40px] font-extrabold text-[#16161B] tracking-tight uppercase" style={{ fontFamily: 'var(--font-abhaya), serif', lineHeight: '1' }}>
+              TATTOO<br/>TATTVA
+          </h1>
+      </div>
 
-                    {/* Perforated Divider Line */}
-                    <div className="w-full h-[4px]" style={{
-                        // 4px thick, widely spaced (8px dash, 2px gap as requested)
-                        backgroundImage: 'repeating-linear-gradient(to right, #16161B 0, #16161B 8px, transparent 8px, transparent 10px)',
-                        backgroundPosition: 'center',
-                        backgroundSize: '100% 4px',
-                        backgroundRepeat: 'no-repeat'
-                    }} />
-
-                    {/* Bottom Section (Height ~130px to align perfectly with the mask cutouts) */}
-                    <div className="px-[24px] py-[32px] flex justify-between items-start h-[130px]">
+      <AnimatePresence mode="wait">
+        
+        {/* =========================================
+            VIEW 1: REVIEW CART
+            ========================================= */}
+        {step === 'review' && (
+            <motion.div key="review" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                {/* ORDER SUMMARY CARD */}
+                <div className="mx-[24px] mb-[40px] rounded-[9px]" style={{ background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)', padding: '1px', filter: 'drop-shadow(4px 4px 10px rgba(0, 0, 0, 0.1))' }}>
+                    <div className="bg-[#FFFFFF] rounded-[8px] p-[16px] w-full flex flex-col">
                         
-                        {/* Design Details Block */}
-                        <div className="flex flex-col">
-                            <h3 className="font-inter font-extrabold text-[18px] text-[#16161B] mb-[8px]">Design details</h3>
-                            <div className="font-inter font-normal text-[12px] text-[#16161B] leading-[20px]">
-                                <p>Code - {cart.map(c => c.code).join(', ')}</p>
-                                <p>Amount - {totalAmount}/-</p>
-                            </div>
-                        </div>
-                        
-                        {/* PAID Badge */}
-                        <div className="bg-[#F74B33] rounded-[8px] px-[24px] py-[12px] mt-[4px]">
-                            <span className="font-inter font-extrabold text-[26px] text-[#FFFFFF] tracking-[1px]">PAID</span>
+                        <div className="flex items-center gap-[8px] mb-[8px]">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="#16161B" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M7 18C5.9 18 5.01 18.9 5.01 20C5.01 21.1 5.9 22 7 22C8.1 22 9 21.1 9 20C9 18.9 8.1 18 7 18ZM1 2V4H3L6.6 11.59L5.24 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.51C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C15.9 18 15.01 18.9 15.01 20C15.01 21.1 15.9 22 17 22C18.1 22 19 21.1 19 20C19 18.9 18.1 18 17 18Z" />
+                            </svg>
+                            <span className="font-inter text-[16px] font-normal text-[#16161B]">Items in Cart-{cart.length}</span>
                         </div>
 
+                        <div className="mb-[8px]">
+                            <span className="font-inter text-[14px] font-normal text-[#16161B]">Code-{codes.join(', ')}</span>
+                        </div>
+
+                        <div className="mb-[8px]">
+                            <span className="font-inter text-[20px] font-bold text-[#F74B33]">Total Cost- {totalAmount}/-</span>
+                        </div>
+
+                        <div className="flex items-center gap-[6px] cursor-pointer w-fit" onClick={() => setShowDesigns(!showDesigns)}>
+                            <span className="font-inter text-[14px] font-normal text-[#16161B]">Check you Design</span>
+                            <motion.svg animate={{ rotate: showDesigns ? 180 : 0 }} width="10" height="10" viewBox="0 0 24 24" fill="#F74B33">
+                                <path d="M4 8L12 16L20 8H4Z"/>
+                            </motion.svg>
+                        </div>
+
+                        <AnimatePresence>
+                            {showDesigns && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                    <div className="mt-[16px] pt-[16px] border-t border-gray-100 flex gap-[12px] overflow-x-auto no-scrollbar">
+                                        {cart.map((item, index) => (
+                                            <div key={index} className="w-[64px] h-[64px] shrink-0 border border-gray-200 rounded-[8px] p-[4px] bg-white flex items-center justify-center">
+                                                <img src={item.img} alt={item.code} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
-            </div>
-        </motion.div>
-        
+
+                {/* PAYMENT OPTION BUTTONS */}
+                <div className="px-[24px] flex flex-col gap-[16px]">
+                    {/* Option 1: Phone Pe/UPI */}
+                    <div onClick={() => handlePaymentSelect('UPI')} className="rounded-[10px] cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform" style={{ background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)', padding: '2px' }}>
+                        <div className="bg-[#FFFFFF] rounded-[8px] py-[20px] px-[20px] flex justify-between items-center w-full h-full">
+                            <div className="flex flex-col gap-[4px]">
+                                 <span className="font-inter text-[18px] font-bold text-[#16161B]">Phone Pe/UPI</span>
+                                 <span className="font-inter text-[13px] font-normal text-[#16161B]">Choose your preferred app</span>
+                            </div>
+                            <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2 2L12 9L2 16V2Z" fill="#16161B"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Option 2: Pay Via Cash */}
+                    <div onClick={() => handlePaymentSelect('CASH')} className="rounded-[10px] cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform" style={{ background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)', padding: '2px' }}>
+                        <div className="bg-[#FFFFFF] rounded-[8px] py-[20px] px-[20px] flex justify-between items-center w-full h-full">
+                            <div className="flex flex-col gap-[4px]">
+                                 <span className="font-inter text-[18px] font-bold text-[#16161B]">Pay Via Cash</span>
+                                 <span className="font-inter text-[13px] font-normal text-[#16161B]">Pay at the studio counter</span>
+                            </div>
+                            {isGenerating ? <Loader2 className="animate-spin text-[#16161B]" size={18} /> : (
+                                <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M2 2L12 9L2 16V2Z" fill="#16161B"/>
+                                </svg>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        )}
+
+        {/* =========================================
+            VIEW 2: NATIVE UPI GATEWAY 
+            ========================================= */}
+        {step === 'upi_gateway' && (
+            <motion.div key="gateway" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="px-[24px] flex flex-col">
+                <h2 className="text-[22px] font-bold text-[#16161B] font-inter leading-tight mb-6">Secure Checkout</h2>
+
+                <div className="w-full bg-[#FAFAFA] border border-[#EAEAEA] rounded-[12px] p-5 mb-8 shadow-sm">
+                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+                        <span className="text-[14px] text-[#666666] font-inter">Paying To</span>
+                        <span className="text-[15px] font-bold text-[#16161B] font-inter">{studioName}</span>
+                    </div>
+                    <div className="flex justify-between items-end">
+                        <div className="flex flex-col">
+                            <span className="text-[12px] text-[#666666] font-inter uppercase tracking-wide">Total Amount</span>
+                            <span className="text-[32px] font-extrabold text-[#F74B33] font-inter leading-none mt-1">₹{totalAmount}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={handleUpiClick}
+                    className="w-full h-[60px] bg-[#16161B] text-white rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg uppercase tracking-wide mb-4"
+                >
+                    1. OPEN UPI APP TO PAY
+                </button>
+
+                <button 
+                    onClick={() => generateFinalTicket('PAID')}
+                    disabled={!hasClickedPay || isGenerating}
+                    className={`w-full h-[60px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 transition-all uppercase tracking-wide border-2 ${
+                        hasClickedPay 
+                          ? 'bg-[#F74B33] border-[#F74B33] text-white active:scale-95 shadow-[0_4px_15px_rgba(247,75,51,0.3)]' 
+                          : 'bg-transparent border-[#EAEAEA] text-gray-400 opacity-60'
+                    }`}
+                >
+                    {isGenerating ? <Loader2 className="animate-spin" /> : '2. I HAVE PAID - GET TICKET'}
+                </button>
+
+                <button onClick={() => setStep('review')} className="mt-8 text-center text-[13px] text-[#666666] underline font-inter w-full">
+                    Cancel & Go Back
+                </button>
+            </motion.div>
+        )}
+
+      </AnimatePresence>
     </div>
   );
 }

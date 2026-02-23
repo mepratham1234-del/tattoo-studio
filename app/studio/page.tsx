@@ -3,9 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-// 1. IMPORT FIREBASE
-import { db } from '@/lib/firebase'; // Make sure this path matches where you saved firebase.ts
+import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+
+// ----------------------------------------------------------------------
+// CRITICAL FIX: Component moved OUTSIDE to prevent keyboard focus loss
+// ----------------------------------------------------------------------
+const GradientBorderInput = ({ children }: { children: React.ReactNode }) => (
+  <div 
+      className="w-full p-[1px] rounded-full relative"
+      style={{
+          background: 'linear-gradient(135deg, #BDBDBD 0%, #4F4F4F 100%)',
+          height: '48px' 
+      }}
+  >
+      <div className="w-full h-full bg-white rounded-full overflow-hidden flex items-center">
+          {children}
+      </div>
+  </div>
+);
 
 export default function StaffLogin() {
   const router = useRouter();
@@ -18,7 +34,7 @@ export default function StaffLogin() {
   const [staffList, setStaffList] = useState<string[]>([]);
   const [isFetchingStaff, setIsFetchingStaff] = useState(true);
 
-  // 2. FETCH STAFF NAMES FROM DATABASE ON LOAD
+  // 1. FETCH STAFF NAMES
   useEffect(() => {
     const fetchStaff = async () => {
       try {
@@ -39,7 +55,7 @@ export default function StaffLogin() {
     fetchStaff();
   }, []);
 
-  // 3. REAL FIREBASE AUTHENTICATION
+  // 2. AUTHENTICATION & SESSION START
   const handleLogin = async () => {
     if (!selectedArtist || !code) {
         setError('Select an artist and enter code.');
@@ -50,7 +66,7 @@ export default function StaffLogin() {
     setError('');
 
     try {
-      // Query the database: Find a document where name AND pin match
+      // Find user matching Name + PIN
       const q = query(
         collection(db, 'staff'), 
         where('name', '==', selectedArtist), 
@@ -60,17 +76,24 @@ export default function StaffLogin() {
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        // Match found! Get the user's role
         const userData = querySnapshot.docs[0].data();
         
-        // Route them based on their cloud role
+        // SAVE SESSION DATA
+        localStorage.setItem('studio_user_name', userData.name);
+        localStorage.setItem('studio_user_role', userData.role);
+        
+        // Start Invisible Timer
+        if (!localStorage.getItem('shift_start_time')) {
+            localStorage.setItem('shift_start_time', Date.now().toString());
+        }
+        
+        // Route based on role
         if (userData.role === 'owner') {
             router.push('/studio/session/owner');
         } else {
             router.push('/studio/session/artist');
         }
       } else {
-        // No match found
         setError('Invalid Access Code');
       }
     } catch (err) {
@@ -80,21 +103,6 @@ export default function StaffLogin() {
       setLoading(false);
     }
   };
-
-  // --- GRADIENT BORDER COMPONENT ---
-  const GradientBorderInput = ({ children }: { children: React.ReactNode }) => (
-    <div 
-        className="w-full p-[1px] rounded-full relative"
-        style={{
-            background: 'linear-gradient(135deg, #BDBDBD 0%, #4F4F4F 100%)',
-            height: '48px' 
-        }}
-    >
-        <div className="w-full h-full bg-white rounded-full overflow-hidden flex items-center">
-            {children}
-        </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans pb-[80px]">
@@ -107,6 +115,7 @@ export default function StaffLogin() {
               e.currentTarget.nextElementSibling?.classList.remove('hidden');
             }} 
           />
+          {/* Fallback SVG if logo fails */}
           <svg className="hidden" width="100" height="120" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M50 10 C 60 30, 80 40, 90 50 C 70 50, 60 40, 50 60 C 40 40, 30 50, 10 50 C 20 40, 40 30, 50 10 Z" fill="#16161B"/>
             <path d="M50 60 C 60 70, 90 70, 90 60 C 70 80, 55 75, 50 90 C 45 75, 30 80, 10 60 C 10 70, 40 70, 50 60 Z" fill="#16161B"/>

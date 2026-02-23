@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart, Search, X, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { ShoppingCart, Search, X, ChevronUp, SlidersHorizontal, ArrowLeft, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// CHANGE 6: Updated Sort Options
+// SORT OPTIONS
 const PRICE_RANGES = ['Low to High', 'High to Low', '50', '75', '100', '125', '150', '175', '200', '225', '250', '300'];
 
 // ------------------------------------------------------------------
-// FULL INVENTORY (397 Items)
+// FULL INVENTORY (397 Items) - KEPT EXACTLY AS PROVIDED
 // ------------------------------------------------------------------
 const MANUAL_INVENTORY = [
   { "id": "397", "code": "99", "title": "99", "price": "150", "Sort by": "150", "img": "/tattoo/99-150.png" },
@@ -423,6 +423,7 @@ export default function Gallery() {
   const [selectedTattoos, setSelectedTattoos] = useState<any[]>([]);
   const [showCartOverlay, setShowCartOverlay] = useState(false);
   const [showReward, setShowReward] = useState(false);
+  const [hasRewardShown, setHasRewardShown] = useState(false); // FIXED: Prevent repeated pop-ups
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
 
@@ -455,7 +456,6 @@ export default function Gallery() {
     }
   }, [selectedTattoos]);
 
-  // CHANGE 6: Updated Logic for Exact Filters & High/Low Sorting
   useEffect(() => {
     let result = [...inventory];
     
@@ -468,7 +468,7 @@ export default function Gallery() {
       );
     }
 
-    // Price Filter (Exact Match)
+    // Price Filter
     if (activePriceRange && activePriceRange !== 'Low to High' && activePriceRange !== 'High to Low') {
         const targetPrice = parseInt(activePriceRange, 10);
         result = result.filter(t => {
@@ -485,7 +485,6 @@ export default function Gallery() {
         if (activePriceRange === 'High to Low') {
             return priceB - priceA;
         }
-        // Default and "Low to High" sorting
         return priceA - priceB;
     });
 
@@ -495,10 +494,11 @@ export default function Gallery() {
   const handleSelect = (tattoo: any) => {
     if (selectedTattoos.find(t => t.id === tattoo.id)) return;
     
-    // CHANGE 2: Show Reward Card only on FIRST selection
-    if (selectedTattoos.length === 0) {
+    // FIX: Show Reward Card only ONCE per session using 'hasRewardShown' lock
+    if (!hasRewardShown) {
         setShowReward(true);
-        setTimeout(() => setShowReward(false), 2000);
+        setHasRewardShown(true);
+        setTimeout(() => setShowReward(false), 2500);
     }
     setSelectedTattoos(prev => [...prev, { ...tattoo, addedAt: Date.now() }]);
   };
@@ -516,7 +516,6 @@ export default function Gallery() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#FFFFFF] h-[74px] flex items-center justify-between px-[20px]">
          <div className="flex flex-col justify-center">
             <p className="text-[10px] text-[#16161B] font-inter tracking-widest lowercase mb-[2px]" style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>welcome to</p>
-            {/* CHANGE 1: Abhaya Libre Extra Bold explicitly enforced */}
             <h1 className="text-[24px] font-extrabold text-[#16161B] uppercase leading-[0.9]" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
               TATTOO<br/>TATTVA
             </h1>
@@ -525,7 +524,7 @@ export default function Gallery() {
             <Search size={24} strokeWidth={1.5} color="#16161B" />
          </button>
       </header>
-      {/* Gradient Bottom Border (2px) */}
+      
       <div className="fixed top-[74px] left-0 right-0 z-50 h-[2px]" style={{ background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)' }} />
 
       {/* SEARCH BAR & SUGGESTIONS */}
@@ -587,12 +586,10 @@ export default function Gallery() {
               </div>
           </section>
 
-          {/* CHANGE 3 & 4: STICKY "SORT BY" ROW with The Missing Line */}
+          {/* STICKY "SORT BY" ROW */}
           <div className="sticky top-[76px] z-30 w-full flex flex-col">
-              {/* The Missing Orange Line */}
               <div className="w-full h-[1px] bg-[#F74B33]" />
               
-              {/* Sort By Container */}
               <div className="bg-[#FFFFFF] px-[20px] py-[12px] flex flex-col gap-[12px]">
                   <div className="flex justify-end">
                       <div style={{ background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)', padding: '1px', borderRadius: '999px' }}>
@@ -663,20 +660,31 @@ export default function Gallery() {
           </main>
       </div>
 
-      {/* CHANGE 2: REWARD CARD OVERLAY (Matches Mockup) */}
+      {/* UPGRADED REWARD CARD OVERLAY */}
       <AnimatePresence>
         {showReward && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                <div className="bg-[#FFFFFF] rounded-[20px] py-[32px] px-[24px] flex flex-col items-center shadow-2xl w-[85%] max-w-[340px]">
-                    <h2 className="text-[#16161B] text-[22px] font-bold text-center leading-snug font-inter">
-                        Your Ink Journey<br/>has Started
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+                <motion.div 
+                    initial={{ scale: 0.8, rotate: -5 }} 
+                    animate={{ scale: 1, rotate: 0 }} 
+                    exit={{ scale: 0.8, opacity: 0 }} 
+                    transition={{ type: "spring", bounce: 0.5 }}
+                    className="bg-[#FFFFFF] rounded-[24px] py-[40px] px-[24px] flex flex-col items-center shadow-2xl w-full max-w-[340px] text-center relative overflow-hidden"
+                >
+                    <div className="absolute top-0 left-0 w-full h-[6px] bg-gradient-to-r from-[#F74B33] to-[#FFB6AB]" />
+                    <div className="w-[64px] h-[64px] bg-[#F74B33]/10 rounded-full flex items-center justify-center mb-6">
+                        <Zap size={32} className="text-[#F74B33] fill-[#F74B33]" />
+                    </div>
+                    <h2 className="text-[#16161B] text-[24px] font-extrabold leading-tight font-inter mb-2">
+                        Your Ink Journey<br/>Has Started
                     </h2>
-                </div>
+                    <p className="text-[#666666] text-[13px] font-inter">Great choice! Add more designs or proceed to checkout.</p>
+                </motion.div>
             </motion.div>
         )}
       </AnimatePresence>
 
-      {/* CHANGE 5: FLOATING CART BOTTOM BAR (1px border, solid white bg) */}
+      {/* FLOATING CART BOTTOM BAR */}
       {selectedTattoos.length > 0 && !showReward && !showCartOverlay && (
          <motion.div initial={{ y: 50 }} animate={{ y: 0 }} style={{
              position: 'fixed', bottom: '24px', left: '24px', right: '24px', zIndex: 80,
@@ -684,7 +692,7 @@ export default function Gallery() {
              boxShadow: '4px 4px 10px rgba(0,0,0,0.1)'
          }}>
             <div style={{
-                background: '#FFFFFF', // Solid White
+                background: '#FFFFFF',
                 borderRadius: '11px', padding: '10px 16px',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>

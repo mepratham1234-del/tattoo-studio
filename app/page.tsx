@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 
 export default function CustomerLanding() {
   const router = useRouter();
@@ -8,17 +9,27 @@ export default function CustomerLanding() {
   return (
     <div className="min-h-screen bg-[#FFFFFF] flex flex-col items-center justify-center px-[24px] pb-[80px]">
       
-      {/* 1. CUSTOM PNG LOGO SECTION */}
-      <div className="w-[160px] h-[180px] relative mb-[8px] flex flex-col items-center justify-center">
+      {/* 1. ANIMATED LOGO SECTION */}
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="w-[180px] h-[200px] relative mb-[8px] flex flex-col items-center justify-center"
+      >
         <img 
           src="/logo.png" 
           alt="Tattoo Tattva Logo" 
-          className="w-full h-full object-contain" 
+          className="w-full h-full object-contain drop-shadow-xl" 
         />
-      </div>
+      </motion.div>
 
       {/* 2. TEXT SECTION */}
-      <div className="text-center mb-[60px]">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.8 }}
+        className="text-center mb-[60px]"
+      >
         <h1 
           className="text-[48px] font-extrabold text-[#16161B] leading-[0.95] tracking-tight mb-[16px] uppercase"
           style={{ fontFamily: 'var(--font-abhaya), serif' }}
@@ -28,18 +39,22 @@ export default function CustomerLanding() {
         <p className="font-inter text-[13px] text-[#16161B] font-medium uppercase tracking-[0.2em]">
           Pick Your Poison
         </p>
-      </div>
+      </motion.div>
 
       {/* 3. ACTION BUTTON */}
-      <button 
-        /* FIX: Changed from '/browse' to '/gallery' to match your feed component */
+      <motion.button 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.8 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         onClick={() => router.push('/gallery')} 
-        className="w-full max-w-[280px] h-[52px] bg-[#F74B33] rounded-[10px] flex items-center justify-center active:scale-[0.98] transition-transform shadow-[0_8px_20px_rgba(247,75,51,0.25)]"
+        className="w-full max-w-[280px] h-[56px] bg-[#F74B33] rounded-[12px] flex items-center justify-center shadow-[0_8px_20px_rgba(247,75,51,0.3)] transition-shadow hover:shadow-[0_12px_25px_rgba(247,75,51,0.4)]"
       >
         <span className="font-inter text-[14px] font-bold text-[#FFFFFF] uppercase tracking-wider">
-          BROWSE DESIGN
+          BROWSE DESIGNS
         </span>
-      </button>
+      </motion.button>
 
     </div>
   );
