@@ -411,6 +411,23 @@ const MANUAL_INVENTORY = [
   { "id": "396", "code": "98", "title": "98", "price": "100", "Sort by": "100", "img": "/tattoo/98-100.png" }
 ];
 
+// --- ANIMATION VARIANTS ---
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05, // Cascade effect
+      delayChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+};
+
 export default function Gallery() {
   const router = useRouter();
   
@@ -423,7 +440,7 @@ export default function Gallery() {
   const [selectedTattoos, setSelectedTattoos] = useState<any[]>([]);
   const [showCartOverlay, setShowCartOverlay] = useState(false);
   const [showReward, setShowReward] = useState(false);
-  const [hasRewardShown, setHasRewardShown] = useState(false); // FIXED: Prevent repeated pop-ups
+  const [hasRewardShown, setHasRewardShown] = useState(false); 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
 
@@ -494,7 +511,6 @@ export default function Gallery() {
   const handleSelect = (tattoo: any) => {
     if (selectedTattoos.find(t => t.id === tattoo.id)) return;
     
-    // FIX: Show Reward Card only ONCE per session using 'hasRewardShown' lock
     if (!hasRewardShown) {
         setShowReward(true);
         setHasRewardShown(true);
@@ -510,7 +526,12 @@ export default function Gallery() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] font-sans relative overflow-x-hidden">
+    <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }}
+        className="min-h-screen bg-[#FFFFFF] font-sans relative overflow-x-hidden"
+    >
       
       {/* 1. FIXED HEADER */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#FFFFFF] h-[74px] flex items-center justify-between px-[20px]">
@@ -520,9 +541,13 @@ export default function Gallery() {
               TATTOO<br/>TATTVA
             </h1>
          </div>
-         <button onClick={() => setIsSearchOpen(!isSearchOpen)} className="p-1">
+         <motion.button 
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setIsSearchOpen(!isSearchOpen)} 
+            className="p-1"
+         >
             <Search size={24} strokeWidth={1.5} color="#16161B" />
-         </button>
+         </motion.button>
       </header>
       
       <div className="fixed top-[74px] left-0 right-0 z-50 h-[2px]" style={{ background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)' }} />
@@ -530,8 +555,12 @@ export default function Gallery() {
       {/* SEARCH BAR & SUGGESTIONS */}
       <AnimatePresence>
         {isSearchOpen && (
-            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} 
-                className="fixed top-[76px] left-0 right-0 z-40 bg-[#FFFFFF] px-[20px] py-[12px] shadow-sm border-b border-gray-100">
+            <motion.div 
+                initial={{ y: -20, opacity: 0 }} 
+                animate={{ y: 0, opacity: 1 }} 
+                exit={{ y: -20, opacity: 0 }} 
+                className="fixed top-[76px] left-0 right-0 z-40 bg-[#FFFFFF] px-[20px] py-[12px] shadow-sm border-b border-gray-100"
+            >
                 <div className="relative w-full">
                     <div className="w-full h-[46px] bg-gray-50 rounded-full border border-gray-200 flex items-center px-[16px]">
                         <Search size={18} className="text-gray-400 mr-[8px]" />
@@ -566,7 +595,13 @@ export default function Gallery() {
                   {newArrivals.map((item) => {
                       const isSelected = selectedTattoos.find(t => t.id === item.id);
                       return (
-                        <div key={`new-${item.id}`} onClick={() => handleSelect(item)} className="shrink-0 cursor-pointer" style={{ width: '260px', height: '220px' }}>
+                        <motion.div 
+                            key={`new-${item.id}`} 
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleSelect(item)} 
+                            className="shrink-0 cursor-pointer" 
+                            style={{ width: '260px', height: '220px' }}
+                        >
                             <div style={{
                                 background: isSelected ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)',
                                 padding: '1px',
@@ -580,7 +615,7 @@ export default function Gallery() {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                       );
                   })}
               </div>
@@ -606,15 +641,19 @@ export default function Gallery() {
                               {PRICE_RANGES.map((range) => {
                                   const isActive = activePriceRange === range;
                                   return (
-                                    <button key={range} onClick={() => setActivePriceRange(isActive ? null : range)} 
+                                    <motion.button 
+                                        whileTap={{ scale: 0.95 }}
+                                        key={range} 
+                                        onClick={() => setActivePriceRange(isActive ? null : range)} 
                                         style={{ 
                                             background: isActive ? '#F74B33' : '#FFFFFF', 
                                             border: isActive ? '1px solid #F74B33' : '1px solid #CCCCCC',
                                             color: isActive ? '#FFFFFF' : '#666666',
                                             borderRadius: '999px', padding: '6px 16px', fontSize: '14px', fontFamily: 'Inter, sans-serif', fontWeight: isActive ? 600 : 400, flexShrink: 0 
-                                        }}>
+                                        }}
+                                    >
                                         {range}
-                                    </button>
+                                    </motion.button>
                                   );
                               })}
                               {activePriceRange && (
@@ -630,11 +669,24 @@ export default function Gallery() {
 
           {/* MAIN GRID */}
           <main className="w-full px-[20px] py-[16px] pb-[160px]">
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '15px', rowGap: '15px' }}>
+             <motion.div 
+                layout
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: '15px', rowGap: '15px' }}
+             >
                 {displayedItems.map((item) => {
                     const isSelected = selectedTattoos.find(t => t.id === item.id);
                     return (
-                      <div key={item.id} onClick={() => handleSelect(item)} className="cursor-pointer">
+                      <motion.div 
+                        layout 
+                        variants={itemVariants}
+                        whileTap={{ scale: 0.97 }}
+                        key={item.id} 
+                        onClick={() => handleSelect(item)} 
+                        className="cursor-pointer"
+                      >
                         <div style={{
                             background: isSelected ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)',
                             padding: '1px',
@@ -653,10 +705,10 @@ export default function Gallery() {
                                 </div>
                             </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                 })}
-             </div>
+             </motion.div>
           </main>
       </div>
 
@@ -685,53 +737,71 @@ export default function Gallery() {
       </AnimatePresence>
 
       {/* FLOATING CART BOTTOM BAR */}
-      {selectedTattoos.length > 0 && !showReward && !showCartOverlay && (
-         <motion.div initial={{ y: 50 }} animate={{ y: 0 }} style={{
-             position: 'fixed', bottom: '24px', left: '24px', right: '24px', zIndex: 80,
-             background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)', padding: '1px', borderRadius: '12px',
-             boxShadow: '4px 4px 10px rgba(0,0,0,0.1)'
-         }}>
-            <div style={{
-                background: '#FFFFFF',
-                borderRadius: '11px', padding: '10px 16px',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-                <button onClick={() => setShowCartOverlay(true)} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#16161B" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M7 18C5.9 18 5.01 18.9 5.01 20C5.01 21.1 5.9 22 7 22C8.1 22 9 21.1 9 20C9 18.9 8.1 18 7 18ZM1 2V4H3L6.6 11.59L5.24 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.51C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C15.9 18 15.01 18.9 15.01 20C15.01 21.1 15.9 22 17 22C18.1 22 19 21.1 19 20C19 18.9 18.1 18 17 18Z" />
-                    </svg>
-                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 500, color: '#16161B' }}>Tattoo Cart</span>
-                    
-                    <div style={{ background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)', padding: '2px', borderRadius: '4px' }}>
-                        <div style={{ background: '#FFFFFF', padding: '2px 8px', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ color: '#16161B', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{selectedTattoos.length}</span>
-                        </div>
-                    </div>
-                </button>
-                
-                <button onClick={() => router.push('/checkout')} style={{
-                    background: '#F74B33', borderRadius: '6px', padding: '10px 16px',
-                    color: '#FFFFFF', fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase'
+      <AnimatePresence>
+        {selectedTattoos.length > 0 && !showReward && !showCartOverlay && (
+            <motion.div 
+                initial={{ y: 100, opacity: 0 }} 
+                animate={{ y: 0, opacity: 1 }} 
+                exit={{ y: 100, opacity: 0 }}
+                transition={{ type: 'spring', damping: 20 }}
+                style={{
+                    position: 'fixed', bottom: '24px', left: '24px', right: '24px', zIndex: 80,
+                    background: 'linear-gradient(-45deg, #4F4F4F, #BDBDBD)', padding: '1px', borderRadius: '12px',
+                    boxShadow: '4px 4px 10px rgba(0,0,0,0.1)'
+                }}
+            >
+                <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '11px', padding: '10px 16px',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                 }}>
-                    BOOK SESSION
-                </button>
-            </div>
-         </motion.div>
-      )}
+                    <button onClick={() => setShowCartOverlay(true)} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#16161B" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 18C5.9 18 5.01 18.9 5.01 20C5.01 21.1 5.9 22 7 22C8.1 22 9 21.1 9 20C9 18.9 8.1 18 7 18ZM1 2V4H3L6.6 11.59L5.24 14.04C5.09 14.32 5 14.65 5 15C5 16.1 5.9 17 7 17H19V15H7.42C7.28 15 7.17 14.89 7.17 14.75L7.2 14.63L8.1 13H15.55C16.3 13 16.96 12.59 17.3 11.97L20.88 5.51C20.96 5.34 21 5.17 21 5C21 4.45 20.55 4 20 4H5.21L4.27 2H1ZM17 18C15.9 18 15.01 18.9 15.01 20C15.01 21.1 15.9 22 17 22C18.1 22 19 21.1 19 20C19 18.9 18.1 18 17 18Z" />
+                        </svg>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 500, color: '#16161B' }}>Tattoo Cart</span>
+                        
+                        <div style={{ background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)', padding: '2px', borderRadius: '4px' }}>
+                            <div style={{ background: '#FFFFFF', padding: '2px 8px', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ color: '#16161B', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>{selectedTattoos.length}</span>
+                            </div>
+                        </div>
+                    </button>
+                    
+                    <motion.button 
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => router.push('/checkout')} 
+                        style={{
+                            background: '#F74B33', borderRadius: '6px', padding: '10px 16px',
+                            color: '#FFFFFF', fontFamily: 'Inter, sans-serif', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase'
+                        }}
+                    >
+                        BOOK SESSION
+                    </motion.button>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* EXPANDED CART OVERLAY */}
       <AnimatePresence>
         {showCartOverlay && (
             <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCartOverlay(false)} className="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm" />
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="fixed bottom-0 left-0 right-0 z-[95] bg-[#FFFFFF] rounded-t-[24px] shadow-2xl p-[24px] pb-[40px] max-h-[80vh] overflow-y-auto">
+            <motion.div 
+                initial={{ y: '100%' }} 
+                animate={{ y: 0 }} 
+                exit={{ y: '100%' }} 
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed bottom-0 left-0 right-0 z-[95] bg-[#FFFFFF] rounded-t-[24px] shadow-2xl p-[24px] pb-[40px] max-h-[80vh] overflow-y-auto"
+            >
                 <div className="flex justify-between items-center mb-[24px]">
                     <h2 className="text-[20px] font-bold text-[#16161B]" style={{ fontFamily: 'var(--font-abhaya), serif' }}>YOUR CART</h2>
                     <button onClick={() => setShowCartOverlay(false)}><ChevronUp size={24} className="rotate-180 text-[#16161B]" /></button>
                 </div>
                 <div className="space-y-[16px] mb-[32px]">
                     {selectedTattoos.map((item) => (
-                        <div key={item.addedAt} className="flex justify-between items-center bg-gray-50 p-[12px] rounded-[12px] border border-gray-100">
+                        <motion.div layout key={item.addedAt} className="flex justify-between items-center bg-gray-50 p-[12px] rounded-[12px] border border-gray-100">
                             <div className="flex items-center gap-[16px]">
                                 <img src={item.img} className="w-[48px] h-[48px] object-contain mix-blend-multiply" />
                                 <div>
@@ -740,17 +810,21 @@ export default function Gallery() {
                                 </div>
                             </div>
                             <button onClick={() => handleRemoveItem(item.id)} className="text-[#F74B33] p-[8px]"><X size={18} /></button>
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
-                <button onClick={() => router.push('/checkout')} className="w-full h-[56px] bg-[#F74B33] text-[#FFFFFF] rounded-[12px] font-bold text-[14px] uppercase font-inter tracking-wide shadow-lg">
+                <motion.button 
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => router.push('/checkout')} 
+                    className="w-full h-[56px] bg-[#F74B33] text-[#FFFFFF] rounded-[12px] font-bold text-[14px] uppercase font-inter tracking-wide shadow-lg"
+                >
                     PROCEED TO BOOKING
-                </button>
+                </motion.button>
             </motion.div>
             </>
         )}
       </AnimatePresence>
 
-    </div>
+    </motion.div>
   );
 }

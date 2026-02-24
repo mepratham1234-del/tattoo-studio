@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Upload, Trash2, Plus, Loader2, FileEdit } from 'lucide-react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // UI Helper
 const GradientInput = ({ children }: { children: React.ReactNode }) => (
@@ -14,6 +15,20 @@ const GradientInput = ({ children }: { children: React.ReactNode }) => (
     </div>
   </div>
 );
+
+// Animation Variants
+const listVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  show: { opacity: 1, x: 0 }
+};
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -66,7 +81,7 @@ export default function InventoryPage() {
 
       const docRef = await addDoc(collection(db, 'inventory'), newItem);
       
-      // Update UI
+      // Update UI with animation
       setInventory([{ id: docRef.id, ...newItem }, ...inventory]);
       
       // Reset Form
@@ -96,15 +111,18 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[80px]">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[80px]"
+    >
         
         {/* HEADER */}
         <header className="flex items-center mb-[32px]">
-          <button onClick={() => router.back()} className="p-2 -ml-2 mr-[8px] active:scale-90 transition-transform">
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => router.back()} className="p-2 -ml-2 mr-[8px]">
             <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
             </svg>
-          </button>
+          </motion.button>
           <div className="flex flex-col">
             <h1 className="text-[26px] font-extrabold text-[#16161B] uppercase tracking-wide leading-none" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
                 INVENTORY
@@ -114,7 +132,10 @@ export default function InventoryPage() {
         </header>
 
         {/* ADD NEW DESIGN CARD */}
-        <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }} className="mb-[32px]">
+        <motion.div 
+          initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }}
+          style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }} className="mb-[32px]"
+        >
           <div className="bg-[#FFFFFF] rounded-[15px] p-[20px] w-full flex flex-col">
             
             <h2 className="font-inter text-[16px] font-bold text-[#16161B] mb-[20px] flex items-center gap-2">
@@ -153,12 +174,13 @@ export default function InventoryPage() {
             </div>
 
             {/* Action Button */}
-            <button 
+            <motion.button 
+                whileTap={{ scale: 0.98 }}
                 onClick={handleAddItem}
                 disabled={!code || !price1 || !price2 || isAdding}
                 style={{ background: code && price1 && price2 ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : '#EAEAEA' }}
                 className={`w-full h-[48px] rounded-full flex items-center justify-center gap-[8px] transition-all ${
-                    code && price1 && price2 ? 'shadow-[0_4px_15px_rgba(247,75,51,0.25)] active:scale-[0.98]' : 'opacity-50 text-[#666666]'
+                    code && price1 && price2 ? 'shadow-[0_4px_15px_rgba(247,75,51,0.25)]' : 'opacity-50 text-[#666666]'
                 }`}
             >
                 {isAdding ? <Loader2 className="animate-spin text-[#FFFFFF]" size={20} /> : (
@@ -169,23 +191,35 @@ export default function InventoryPage() {
                     </span>
                   </>
                 )}
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
 
         {/* LIST */}
         <h3 className="font-inter text-[14px] font-medium text-[#16161B] uppercase tracking-wide mb-[16px] border-b border-gray-200 pb-2">
           Database Records
         </h3>
         
-        <div className="flex flex-col gap-[12px]">
+        <motion.div 
+          variants={listVariants}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-[12px]"
+        >
+            <AnimatePresence mode='popLayout'>
             {isFetching ? (
               <div className="flex justify-center py-[40px]"><Loader2 className="animate-spin text-[#F74B33]" size={24} /></div>
             ) : inventory.length === 0 ? (
               <p className="text-center text-[12px] text-[#666666] py-[20px]">Database is empty.</p>
             ) : (
               inventory.map((item) => (
-                  <div key={item.id} style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.05)' }}>
+                  <motion.div 
+                    layout
+                    variants={itemVariants}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    key={item.id} 
+                    style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.05)' }}
+                  >
                     <div className="bg-[#FFFFFF] rounded-[11px] p-[16px] flex items-center justify-between">
                         <div className="flex items-center gap-[16px]">
                             <div className="flex flex-col">
@@ -195,15 +229,20 @@ export default function InventoryPage() {
                                 </span>
                             </div>
                         </div>
-                        <button onClick={() => handleDelete(item.id)} className="w-[36px] h-[36px] rounded-full flex items-center justify-center bg-[#F74B33]/10 text-[#F74B33] active:scale-95 transition-transform">
+                        <motion.button 
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleDelete(item.id)} 
+                          className="w-[36px] h-[36px] rounded-full flex items-center justify-center bg-[#F74B33]/10 text-[#F74B33] transition-transform"
+                        >
                             <Trash2 size={16} strokeWidth={2} />
-                        </button>
+                        </motion.button>
                     </div>
-                  </div>
+                  </motion.div>
               ))
             )}
-        </div>
+            </AnimatePresence>
+        </motion.div>
 
-    </div>
+    </motion.div>
   );
 }

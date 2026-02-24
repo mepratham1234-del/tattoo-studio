@@ -2,36 +2,51 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { ChevronLeft, RefreshCw, Users, Clock, ChevronDown } from 'lucide-react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+// --- FIXED: Explicitly typed Variants ---
+const tabContentVariants: Variants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: { 
+    opacity: 1, 
+    x: 0,
+    transition: { duration: 0.3, ease: "easeOut", staggerChildren: 0.1 }
+  },
+  exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
+};
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
 
 export default function OwnerDashboard() {
   const router = useRouter();
   
   // State
-  const [activeTab, setActiveTab] = useState<'stats' | 'owner'>('stats'); // 'stats' = Personal, 'owner' = Studio Global
+  const [activeTab, setActiveTab] = useState<'stats' | 'owner'>('stats'); 
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [ownerName, setOwnerName] = useState('Owner');
   
   // Data State
-  const [tickets, setTickets] = useState<any[]>([]); // All tickets
-  const [personalTickets, setPersonalTickets] = useState<any[]>([]); // Tickets scanned by owner
+  const [tickets, setTickets] = useState<any[]>([]); 
+  const [personalTickets, setPersonalTickets] = useState<any[]>([]); 
   const [artistStats, setArtistStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Live Timer State (Personal)
+  // Live Timer State
   const [shiftTime, setShiftTime] = useState('0h 0m');
 
   // 1. INITIALIZE
   useEffect(() => {
     const storedName = localStorage.getItem('studio_user_name');
     if (storedName) setOwnerName(storedName);
-    else router.push('/studio'); // Security check
+    else router.push('/studio'); 
 
-    // Personal Shift Timer
     const tick = () => {
         const start = parseInt(localStorage.getItem('shift_start_time') || Date.now().toString());
         const diff = Date.now() - start;
@@ -42,26 +57,23 @@ export default function OwnerDashboard() {
     tick();
     const interval = setInterval(tick, 60000);
 
-    fetchData(); // Load Data
+    fetchData(); 
     return () => clearInterval(interval);
   }, []);
 
-  // 2. THE AGGREGATION ENGINE (Fixes Issue 8 & 9)
+  // 2. THE AGGREGATION ENGINE
   const fetchData = async () => {
     setIsRefreshing(true);
     try {
-        // Fetch ALL redeemed tickets for the studio
         const q = query(collection(db, 'tickets'), where('status', '==', 'REDEEMED'), orderBy('scannedAt', 'desc'));
         const snapshot = await getDocs(q);
         
         const allData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTickets(allData);
 
-        // Filter for "My Stats" tab
         const myData = allData.filter((t: any) => t.scannedBy === localStorage.getItem('studio_user_name'));
         setPersonalTickets(myData);
 
-        // Calculate Artist Breakdown (Grouping by 'scannedBy')
         const stats: Record<string, number> = {};
         allData.forEach((t: any) => {
             const artist = t.scannedBy || 'Unknown';
@@ -84,11 +96,8 @@ export default function OwnerDashboard() {
   };
 
   // CALCULATIONS
-  // A. Personal Stats
   const myRevenue = personalTickets.reduce((sum, t) => sum + (parseInt(t.totalPrice) || 0), 0);
   const myClients = personalTickets.length;
-
-  // B. Studio Stats
   const studioRevenue = tickets.reduce((sum, t) => sum + (parseInt(t.totalPrice) || 0), 0);
 
   return (
@@ -97,17 +106,21 @@ export default function OwnerDashboard() {
       {/* 1. HEADER */}
       <header className="pt-[40px] px-[24px] flex justify-between items-center">
         <div className="flex items-center gap-[12px]">
-          <button onClick={() => router.back()} className="p-2 -ml-2 active:scale-90 transition-transform">
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => router.back()} className="p-2 -ml-2">
             <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
             </svg>
-          </button>
+          </motion.button>
           <div className="flex flex-col">
             <h1 className="text-[24px] font-extrabold text-[#16161B] uppercase leading-none" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
               DASHBOARD
             </h1>
             <div className="flex items-center gap-[4px] mt-[4px]">
-              <div className="w-[4px] h-[4px] rounded-full bg-[#F74B33]" />
+              <motion.div 
+                animate={{ opacity: [1, 0.5, 1] }} 
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="w-[4px] h-[4px] rounded-full bg-[#F74B33]" 
+              />
               <span className="font-inter text-[10px] text-[#F74B33] font-normal leading-none">Live</span>
               <div className="w-[4px] h-[4px] rounded-full bg-[#16161B] ml-[4px]" />
               <span className="font-inter text-[10px] text-[#16161B] font-normal leading-none">
@@ -117,12 +130,13 @@ export default function OwnerDashboard() {
           </div>
         </div>
         
-        <button 
+        <motion.button 
+            whileTap={{ rotate: 180 }}
             onClick={fetchData} 
-            className={`w-[32px] h-[32px] rounded-[8px] border-[2px] border-[#16161B] flex items-center justify-center active:scale-95 transition-all ${isRefreshing ? 'opacity-50' : ''}`}
+            className={`w-[32px] h-[32px] rounded-[8px] border-[2px] border-[#16161B] flex items-center justify-center transition-all ${isRefreshing ? 'opacity-50' : ''}`}
         >
           <RefreshCw size={16} color="#16161B" strokeWidth={2.5} className={isRefreshing ? "animate-spin" : ""} />
-        </button>
+        </motion.button>
       </header>
 
       {/* 2. SEGMENTED TOGGLE SWITCH */}
@@ -130,39 +144,49 @@ export default function OwnerDashboard() {
         <div className="flex items-center relative">
           
           {/* MY STATS (Left) */}
-          <div onClick={() => setActiveTab('stats')} className="relative cursor-pointer transition-all duration-300" style={{
+          <motion.div 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveTab('stats')} 
+            className="relative cursor-pointer transition-all duration-300" 
+            style={{
               zIndex: activeTab === 'stats' ? 10 : 1,
               background: activeTab === 'stats' ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'transparent',
               padding: activeTab === 'stats' ? '2px' : '0px', 
               borderRadius: '999px',
               boxShadow: activeTab === 'stats' ? '4px 4px 10px rgba(247, 75, 51, 0.25)' : 'none',
-            }}>
+            }}
+          >
             <div className="bg-[#FFFFFF] flex items-center justify-center transition-all duration-300" style={{ 
                 borderRadius: '999px', 
                 padding: activeTab === 'stats' ? '12px 24px' : '14px 26px',
                 border: activeTab === 'stats' ? 'none' : '1px solid #16161B' 
-              }}>
+            }}>
               <span className={`font-inter text-[14px] ${activeTab === 'stats' ? 'font-bold' : 'font-medium'} text-[#16161B] uppercase`}>MY STATS</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* OWNER (Right) */}
-          <div onClick={() => setActiveTab('owner')} className="relative cursor-pointer transition-all duration-300" style={{
+          <motion.div 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveTab('owner')} 
+            className="relative cursor-pointer transition-all duration-300" 
+            style={{
               zIndex: activeTab === 'owner' ? 10 : 1,
-              marginLeft: '-24px', // The Overlap
+              marginLeft: '-24px', 
               background: activeTab === 'owner' ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'transparent',
               padding: activeTab === 'owner' ? '2px' : '0px', 
               borderRadius: '999px',
               boxShadow: activeTab === 'owner' ? '4px 4px 10px rgba(247, 75, 51, 0.25)' : 'none',
-            }}>
+            }}
+          >
             <div className="bg-[#FFFFFF] flex items-center justify-center transition-all duration-300" style={{ 
                 borderRadius: '999px', 
                 padding: activeTab === 'owner' ? '12px 32px' : '14px 34px 14px 40px',
                 border: activeTab === 'owner' ? 'none' : '1px solid #16161B' 
-              }}>
+            }}>
               <span className={`font-inter text-[14px] ${activeTab === 'owner' ? 'font-bold' : 'font-medium'} text-[#16161B] uppercase`}>OWNER</span>
             </div>
-          </div>
+          </motion.div>
 
         </div>
       </div>
@@ -172,7 +196,11 @@ export default function OwnerDashboard() {
         {/* TAB 1: OWNER'S PERSONAL STATS             */}
         {/* ========================================= */}
         {activeTab === 'stats' && (
-          <motion.div key="stats-view" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+          <motion.div 
+            key="stats-view" 
+            variants={tabContentVariants}
+            initial="hidden" animate="visible" exit="exit"
+          >
             
             <div className="mt-[32px] px-[24px]">
               <h2 className="font-inter text-[28px] font-extrabold text-[#16161B] uppercase leading-tight">HELLO, {ownerName}</h2>
@@ -180,15 +208,15 @@ export default function OwnerDashboard() {
             </div>
 
             <div className="mt-[20px] px-[24px] flex flex-col gap-[16px]">
-              <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
+              <motion.div variants={cardVariants} whileHover={{ scale: 1.02 }} style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
                 <div className="bg-[#FFFFFF] rounded-[11px] p-[20px] w-full h-full flex flex-col justify-center">
                   <span className="font-inter text-[12px] font-normal text-[#16161B] uppercase">REVENUE GENERATED</span>
                   <span className="font-inter text-[56px] font-extrabold text-[#16161B] leading-[1.1] mt-[8px]">₹{myRevenue}</span>
                 </div>
-              </div>
+              </motion.div>
 
               <div className="grid grid-cols-2 gap-[16px]">
-                <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
+                <motion.div variants={cardVariants} whileHover={{ scale: 1.02 }} style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
                   <div className="bg-[#FFFFFF] rounded-[11px] p-[20px] w-full h-full flex flex-col justify-between min-h-[140px]">
                     <Users size={24} color="#F74B33" strokeWidth={1.5} className="mb-[16px]" />
                     <div className="flex flex-col">
@@ -196,9 +224,9 @@ export default function OwnerDashboard() {
                       <span className="font-inter text-[28px] font-bold text-[#16161B] leading-tight">{myClients}</span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
 
-                <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
+                <motion.div variants={cardVariants} whileHover={{ scale: 1.02 }} style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
                   <div className="bg-[#FFFFFF] rounded-[11px] p-[20px] w-full h-full flex flex-col justify-between min-h-[140px]">
                     <Clock size={24} color="#16161B" strokeWidth={1.5} className="mb-[16px]" />
                     <div className="flex flex-col">
@@ -206,12 +234,12 @@ export default function OwnerDashboard() {
                       <span className="font-inter text-[24px] font-bold text-[#16161B] leading-tight">{shiftTime}</span>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
             </div>
 
             {/* PERSONAL HISTORY */}
-            <div className="mt-[24px] px-[24px]">
+            <motion.div variants={cardVariants} className="mt-[24px] px-[24px]">
               <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
                 <div className="bg-[#FFFFFF] rounded-[11px] py-[16px] px-[20px] w-full h-full">
                   <h3 className="font-inter text-[14px] font-normal text-[#16161B]">MY ORDER HISTORY</h3>
@@ -225,8 +253,8 @@ export default function OwnerDashboard() {
                       const codesStr = order.items ? order.items.map((i:any) => i.code).join(', ') : 'Unknown';
 
                       return (
-                        <div key={order.id} className="flex flex-col">
-                          <button onClick={() => toggleOrder(order.id)} className="flex justify-between items-center py-[16px] w-full">
+                        <motion.div layout key={order.id} className="flex flex-col">
+                          <button onClick={() => toggleOrder(order.id)} className="flex justify-between items-center py-[16px] w-full active:opacity-60">
                             <span className={`font-inter text-[14px] text-[#16161B] ${isExpanded ? 'font-bold' : 'font-normal'}`}>Order #{order.id.slice(-4)}</span>
                             <motion.div animate={{ rotate: isExpanded ? 180 : 0 }}><ChevronDown size={16} color="#16161B" /></motion.div>
                           </button>
@@ -246,13 +274,13 @@ export default function OwnerDashboard() {
                             )}
                           </AnimatePresence>
                           {!isExpanded && !isLast && <div className="w-full h-[1px] bg-[#EAEAEA]" />}
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
 
@@ -260,11 +288,15 @@ export default function OwnerDashboard() {
         {/* TAB 2: STUDIO TOTAL STATS (Aggregated)    */}
         {/* ========================================= */}
         {activeTab === 'owner' && (
-          <motion.div key="owner-view" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+          <motion.div 
+            key="owner-view" 
+            variants={tabContentVariants}
+            initial="hidden" animate="visible" exit="exit"
+          >
             
             {/* TOTAL STUDIO SALES CARD */}
             <div className="mt-[32px] px-[24px]">
-              <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
+              <motion.div variants={cardVariants} whileHover={{ scale: 1.02 }} style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
                 <div className="bg-[#FFFFFF] rounded-[11px] p-[20px] w-full h-full flex flex-col justify-center">
                   <div className="flex items-center gap-[6px]">
                     <div className="w-[16px] h-[16px] border border-[#16161B] rounded-[4px] flex items-center justify-center">
@@ -274,11 +306,11 @@ export default function OwnerDashboard() {
                   </div>
                   <span className="font-inter text-[56px] font-extrabold text-[#16161B] leading-[1.1] mt-[8px]">₹{studioRevenue}</span>
                 </div>
-              </div>
+              </motion.div>
             </div>
 
-            {/* ARTIST BREAK DOWN LIST (Fixes Issue 8) */}
-            <div className="mt-[24px] px-[24px]">
+            {/* ARTIST BREAK DOWN LIST */}
+            <motion.div variants={cardVariants} className="mt-[24px] px-[24px]">
                <h3 className="font-inter text-[12px] font-normal text-[#16161B] uppercase mb-[8px]">ARTIST BREAK DOWN</h3>
                
                <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
@@ -288,16 +320,22 @@ export default function OwnerDashboard() {
                       <p className="text-[12px] text-gray-400">No data available.</p>
                   ) : (
                       Object.entries(artistStats).map(([name, revenue], index) => (
-                        <div key={name} className={`flex flex-col gap-[6px] ${index !== Object.keys(artistStats).length -1 ? 'border-b border-[#16161B] pb-[16px]' : ''}`}>
+                        <motion.div 
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            key={name} 
+                            className={`flex flex-col gap-[6px] ${index !== Object.keys(artistStats).length -1 ? 'border-b border-[#16161B] pb-[16px]' : ''}`}
+                        >
                           <span className="font-inter text-[14px] font-normal text-[#16161B]">{name}</span>
                           <span className="font-inter text-[14px] font-bold text-[#16161B]">Revenue Generated - ₹{revenue}/-</span>
-                        </div>
+                        </motion.div>
                       ))
                   )}
 
                 </div>
               </div>
-            </div>
+            </motion.div>
 
           </motion.div>
         )}

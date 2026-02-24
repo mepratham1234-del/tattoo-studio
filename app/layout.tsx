@@ -16,7 +16,7 @@ const abhaya = Abhaya_Libre({
   display: 'swap',
 });
 
-// 2. MOBILE VIEWPORT LOCK
+// 2. MOBILE VIEWPORT LOCK (Essential for App-like Animation Feel)
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

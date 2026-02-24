@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, UserPlus, CheckCircle2, ChevronDown, Landmark, User, ArrowLeft } from 'lucide-react';
 import { collection, doc, getDoc, getDocs, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface BankAccount {
   id: string;
@@ -23,7 +24,6 @@ interface StaffMember {
   assignedUpiId?: string;
 }
 
-// Gradient Wrapper outside to prevent focus loss
 const GradientInputWrapper = ({ children }: { children: React.ReactNode }) => (
   <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '12px' }}>
     <div className="bg-[#FFFFFF] rounded-[11px] overflow-hidden flex items-center relative">
@@ -47,11 +47,10 @@ export default function AssignProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // 1. FETCH DATA (Banks + Staff)
+  // 1. FETCH DATA
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // A. Fetch Banks
         const bankSnap = await getDoc(doc(db, 'studio_settings', 'payout_banks'));
         if (bankSnap.exists() && bankSnap.data().accounts) {
           const banks = bankSnap.data().accounts;
@@ -60,7 +59,6 @@ export default function AssignProfilePage() {
           if (defaultBank) setSelectedBankId(defaultBank.id);
         }
 
-        // B. Fetch Staff (Only Artists)
         const q = query(collection(db, 'staff'), where('role', '==', 'artist'));
         const querySnapshot = await getDocs(q);
         const staff: StaffMember[] = [];
@@ -84,7 +82,7 @@ export default function AssignProfilePage() {
     fetchData();
   }, []);
 
-  // 2. SAVE (UPDATE EXISTING STAFF)
+  // 2. SAVE
   const handleSaveArtist = async () => {
     if (!selectedArtistId || !selectedProfile || !selectedBankId) return;
     setIsSaving(true);
@@ -92,15 +90,13 @@ export default function AssignProfilePage() {
     try {
       const chosenBank = availableBanks.find(b => b.id === selectedBankId);
       
-      // Update the specific staff document
       const staffRef = doc(db, 'staff', selectedArtistId);
       await updateDoc(staffRef, {
-          profile: selectedProfile, // 1 or 2
+          profile: selectedProfile, 
           assignedBankId: selectedBankId,
           assignedUpiId: chosenBank?.upiId || ''
       });
 
-      // Update Local UI instantly
       setStaffList(prev => prev.map(s => {
           if (s.id === selectedArtistId) {
               return { 
@@ -129,15 +125,18 @@ export default function AssignProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[100px]">
+    <motion.div 
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[100px]"
+    >
       
       {/* HEADER */}
       <header className="flex items-center mb-[40px]">
-        <button onClick={() => router.back()} className="p-2 -ml-2 mr-[8px] active:scale-90 transition-transform">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={() => router.back()} className="p-2 -ml-2 mr-[8px]">
           <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
           </svg>
-        </button>
+        </motion.button>
         <div className="flex flex-col">
             <h1 className="text-[24px] font-extrabold text-[#16161B] uppercase tracking-wide leading-none" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
                 ASSIGN PROFILE
@@ -147,13 +146,17 @@ export default function AssignProfilePage() {
       </header>
 
       {/* FORM AREA */}
+      <AnimatePresence mode="wait">
       {success ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-[16px] border border-gray-100 mb-8">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
+            className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-[16px] border border-gray-100 mb-8"
+          >
               <CheckCircle2 size={56} className="text-[#22c55e] mb-4" />
               <h2 className="font-inter text-[18px] font-bold text-[#16161B]">Profile Updated!</h2>
-          </div>
+          </motion.div>
       ) : (
-          <div className="flex flex-col gap-[24px] mb-12">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-[24px] mb-12">
               
               {/* 1. SELECT ARTIST */}
               <div>
@@ -186,7 +189,8 @@ export default function AssignProfilePage() {
                   </label>
                   <div className="flex gap-[12px]">
                       {['1', '2'].map((profile) => (
-                          <button
+                          <motion.button
+                              whileTap={{ scale: 0.98 }}
                               key={profile}
                               onClick={() => setSelectedProfile(profile as '1' | '2')}
                               className={`flex-1 h-[52px] rounded-[12px] font-inter text-[14px] font-bold uppercase transition-all ${
@@ -196,7 +200,7 @@ export default function AssignProfilePage() {
                               }`}
                           >
                               Profile {profile}
-                          </button>
+                          </motion.button>
                       ))}
                   </div>
               </div>
@@ -226,15 +230,17 @@ export default function AssignProfilePage() {
                   </GradientInputWrapper>
               </div>
 
-              <button 
+              <motion.button 
+                  whileTap={{ scale: 0.98 }}
                   onClick={handleSaveArtist}
                   disabled={!selectedArtistId || !selectedProfile || !selectedBankId || isSaving}
-                  className="w-full h-[56px] mt-[8px] bg-[#F74B33] text-[#FFFFFF] rounded-[12px] font-bold text-[15px] uppercase tracking-wide flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-[0_8px_20px_rgba(247,75,51,0.25)] disabled:opacity-50 disabled:shadow-none"
+                  className="w-full h-[56px] mt-[8px] bg-[#F74B33] text-[#FFFFFF] rounded-[12px] font-bold text-[15px] uppercase tracking-wide flex items-center justify-center gap-2 transition-all shadow-[0_8px_20px_rgba(247,75,51,0.25)] disabled:opacity-50 disabled:shadow-none"
               >
                   {isSaving ? <Loader2 className="animate-spin" /> : <><UserPlus size={20} /> Update Configuration</>}
-              </button>
-          </div>
+              </motion.button>
+          </motion.div>
       )}
+      </AnimatePresence>
 
       {/* ACTIVE CONFIGURATION LIST */}
       {staffList.length > 0 && (
@@ -263,6 +269,6 @@ export default function AssignProfilePage() {
         </div>
       )}
 
-    </div>
+    </motion.div>
   );
 }

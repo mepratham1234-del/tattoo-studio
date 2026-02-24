@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
-// ----------------------------------------------------------------------
-// CRITICAL FIX: Component moved OUTSIDE to prevent keyboard focus loss
-// ----------------------------------------------------------------------
+// Component defined OUTSIDE to prevent keyboard focus loss
 const GradientBorderInput = ({ children }: { children: React.ReactNode }) => (
   <div 
       className="w-full p-[1px] rounded-full relative"
@@ -66,7 +65,6 @@ export default function StaffLogin() {
     setError('');
 
     try {
-      // Find user matching Name + PIN
       const q = query(
         collection(db, 'staff'), 
         where('name', '==', selectedArtist), 
@@ -77,17 +75,13 @@ export default function StaffLogin() {
 
       if (!querySnapshot.empty) {
         const userData = querySnapshot.docs[0].data();
-        
-        // SAVE SESSION DATA
         localStorage.setItem('studio_user_name', userData.name);
         localStorage.setItem('studio_user_role', userData.role);
         
-        // Start Invisible Timer
         if (!localStorage.getItem('shift_start_time')) {
             localStorage.setItem('shift_start_time', Date.now().toString());
         }
         
-        // Route based on role
         if (userData.role === 'owner') {
             router.push('/studio/session/owner');
         } else {
@@ -107,34 +101,49 @@ export default function StaffLogin() {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans pb-[80px]">
        
-       {/* LOGO SECTION */}
-       <div className="w-[180px] h-[180px] relative mb-2 flex items-center justify-center">
+       {/* ANIMATED LOGO SECTION */}
+       <motion.div 
+         initial={{ opacity: 0, scale: 0.8 }}
+         animate={{ opacity: 1, scale: 1 }}
+         transition={{ duration: 0.8, ease: "easeOut" }}
+         className="w-[180px] h-[180px] relative mb-2 flex items-center justify-center"
+       >
           <img src="/logo.png" alt="Tattoo Tattva Logo" className="w-full h-full object-contain" 
             onError={(e) => {
               e.currentTarget.style.display='none';
               e.currentTarget.nextElementSibling?.classList.remove('hidden');
             }} 
           />
-          {/* Fallback SVG if logo fails */}
+          {/* Fallback SVG */}
           <svg className="hidden" width="100" height="120" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M50 10 C 60 30, 80 40, 90 50 C 70 50, 60 40, 50 60 C 40 40, 30 50, 10 50 C 20 40, 40 30, 50 10 Z" fill="#16161B"/>
             <path d="M50 60 C 60 70, 90 70, 90 60 C 70 80, 55 75, 50 90 C 45 75, 30 80, 10 60 C 10 70, 40 70, 50 60 Z" fill="#16161B"/>
             <path d="M50 90 C 50 110, 65 110, 65 100 C 65 115, 45 120, 45 100 C 45 95, 50 90, 50 90 Z" fill="#16161B"/>
           </svg>
-       </div>
+       </motion.div>
 
        {/* TEXT SECTION */}
-       <div className="text-center mb-10">
+       <motion.div 
+         initial={{ opacity: 0, y: 10 }}
+         animate={{ opacity: 1, y: 0 }}
+         transition={{ delay: 0.3 }}
+         className="text-center mb-10"
+       >
          <h1 style={{ fontFamily: 'var(--font-abhaya), serif' }} className="text-[40px] font-extrabold text-black leading-[1.1] tracking-tight mb-2 uppercase">
            TATTOO<br/>TATTVA
          </h1>
          <p className="font-inter text-[14px] text-gray-500 font-normal">
            Staff Login
          </p>
-       </div>
+       </motion.div>
 
        {/* FORM SECTION */}
-       <div className="w-full max-w-[320px] space-y-4">
+       <motion.div 
+         initial={{ opacity: 0, y: 20 }}
+         animate={{ opacity: 1, y: 0 }}
+         transition={{ delay: 0.5 }}
+         className="w-full max-w-[320px] space-y-4"
+       >
          
          {/* Artist Dropdown */}
          <GradientBorderInput>
@@ -172,10 +181,12 @@ export default function StaffLogin() {
          {error && <p className="text-[#F74B33] font-bold text-[12px] uppercase tracking-wide text-center mt-2">{error}</p>}
 
          {/* ENTER Button */}
-         <button 
+         <motion.button 
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
             onClick={handleLogin}
             disabled={loading || isFetchingStaff}
-            className="w-full rounded-full text-white font-bold text-[14px] uppercase shadow-[0_4px_15px_rgba(247,75,51,0.25)] active:scale-95 transition-all flex items-center justify-center mt-6 disabled:opacity-70"
+            className="w-full rounded-full text-white font-bold text-[14px] uppercase shadow-[0_4px_15px_rgba(247,75,51,0.25)] flex items-center justify-center mt-6 disabled:opacity-70"
             style={{ 
                 backgroundColor: '#F74B33', 
                 height: '48px',
@@ -183,9 +194,9 @@ export default function StaffLogin() {
             }}
          >
             {loading ? <Loader2 className="animate-spin" size={18} /> : 'ENTER'}
-         </button>
+         </motion.button>
 
-       </div>
+       </motion.div>
     </div>
   );
 }

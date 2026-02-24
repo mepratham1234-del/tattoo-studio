@@ -22,7 +22,6 @@ export default function QRScannerPage() {
     const name = localStorage.getItem('studio_user_name');
     if (name) setArtistName(name);
     else {
-        // If no user found, force login (Security)
         router.push('/studio');
     }
   }, [router]);
@@ -30,7 +29,6 @@ export default function QRScannerPage() {
   // 2. Parse and Validate QR
   const handleScan = (text: string) => {
     if (text && !scannedData && !isProcessing) {
-      // Expected Format: "TKT:TKT-12345|AMT:250"
       if (text.includes('TKT:') && text.includes('AMT:')) {
           try {
             const parts = text.split('|');
@@ -42,13 +40,12 @@ export default function QRScannerPage() {
             setErrorMsg('Invalid QR Format');
           }
       } else {
-          // Handle raw TKT codes if format differs
           setScannedData({ id: text, amount: 'Unknown' });
       }
     }
   };
 
-  // 3. THE CRITICAL DATABASE UPDATE (Fixes Issues 4 & 5)
+  // 3. DATABASE UPDATE
   const handleAccept = async () => {
     if (!scannedData || !artistName) return;
     
@@ -58,22 +55,19 @@ export default function QRScannerPage() {
       const ticketSnap = await getDoc(ticketRef);
 
       if (ticketSnap.exists()) {
-          // Verify it hasn't been used yet
           if (ticketSnap.data().status === 'REDEEMED') {
               setErrorMsg('Ticket already used!');
               setIsProcessing(false);
               return;
           }
 
-          // UPDATE FIREBASE
           await updateDoc(ticketRef, {
               status: 'REDEEMED',
-              scannedBy: artistName, // This populates the Artist Dashboard
-              scannedAt: new Date().toISOString(), // This drives the Shift Timer/History
+              scannedBy: artistName, 
+              scannedAt: new Date().toISOString(), 
               redeemedAmount: scannedData.amount
           });
 
-          // Success & Redirect
           router.push('/studio/dashboard/artist');
       } else {
           setErrorMsg('Ticket ID not found in database.');
@@ -86,22 +80,25 @@ export default function QRScannerPage() {
     }
   };
 
-  // Secret Demo Trigger (Updated to use Real Logic format)
   const simulateScan = () => {
     handleScan('TKT:TKT-DEMO|AMT:500');
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] font-sans relative overflow-hidden">
+    <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        className="min-h-screen bg-[#FFFFFF] font-sans relative overflow-hidden"
+    >
       
       {/* 1. TOP NAVIGATION HEADER */}
       <header className="pt-[40px] px-[24px] flex justify-between items-center relative z-10">
         <div className="flex items-center gap-[12px]">
-          <button onClick={() => router.back()} className="p-2 -ml-2 active:scale-90 transition-transform">
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => router.back()} className="p-2 -ml-2">
             <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
             </svg>
-          </button>
+          </motion.button>
           <h1 className="text-[24px] font-extrabold text-[#16161B] uppercase leading-none" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
             SCAN TICKET
           </h1>
@@ -117,13 +114,18 @@ export default function QRScannerPage() {
 
       {/* 3. CAMERA VIEWFINDER */}
       <div className="mt-[32px] px-[32px] flex justify-center relative">
-        <div style={{
-          background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)',
-          padding: '3px',
-          borderRadius: '24px',
-          boxShadow: '0px 10px 30px rgba(247, 75, 51, 0.25)',
-          width: '100%', maxWidth: '300px', aspectRatio: '1/1', position: 'relative'
-        }}>
+        <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, type: 'spring' }}
+            style={{
+                background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)',
+                padding: '3px',
+                borderRadius: '24px',
+                boxShadow: '0px 10px 30px rgba(247, 75, 51, 0.25)',
+                width: '100%', maxWidth: '300px', aspectRatio: '1/1', position: 'relative'
+            }}
+        >
           <div className="bg-[#16161B] w-full h-full rounded-[21px] overflow-hidden relative shadow-inner flex items-center justify-center">
             
             {/* The Actual Camera Component */}
@@ -148,20 +150,20 @@ export default function QRScannerPage() {
 
             {/* Scanning Laser Animation */}
             <motion.div 
-              animate={{ y: [0, 200, 0] }} 
-              transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-              className="absolute top-8 left-8 right-8 h-[2px] bg-[#F74B33] shadow-[0_0_15px_#F74B33]"
+              animate={{ top: ["10%", "90%", "10%"] }} 
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              className="absolute left-8 right-8 h-[2px] bg-[#F74B33] shadow-[0_0_20px_#F74B33]"
             />
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Secret Demo Button */}
       <div className="mt-[40px] flex justify-center">
-        <button onClick={simulateScan} className="flex flex-col items-center gap-[8px] opacity-50 hover:opacity-100 transition-opacity">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={simulateScan} className="flex flex-col items-center gap-[8px] opacity-50 hover:opacity-100 transition-opacity">
           <ScanLine size={32} color="#16161B" />
           <span className="font-inter text-[10px] text-[#16161B] uppercase tracking-widest">Tap to Test</span>
-        </button>
+        </motion.button>
       </div>
 
       {/* 4. SUCCESS BOTTOM SHEET */}
@@ -188,7 +190,7 @@ export default function QRScannerPage() {
                     <p className="font-inter font-medium text-[12px] text-[#22c55e] uppercase tracking-wider">Ready for Session</p>
                   </div>
                 </div>
-                <button onClick={() => setScannedData(null)} className="p-2 bg-gray-100 rounded-full">
+                <button onClick={() => setScannedData(null)} className="p-2 bg-gray-100 rounded-full active:scale-90 transition-transform">
                   <X size={18} color="#16161B" />
                 </button>
               </div>
@@ -215,24 +217,25 @@ export default function QRScannerPage() {
               )}
 
               {/* Action Button */}
-              <button 
+              <motion.button 
+                whileTap={{ scale: 0.98 }}
                 onClick={handleAccept}
                 disabled={isProcessing}
                 style={{ background: 'linear-gradient(-45deg, #F74B33, #FFB6AB)' }}
-                className="w-full h-[56px] rounded-[12px] flex items-center justify-center shadow-[4px_4px_15px_rgba(247,75,51,0.3)] transition-transform active:scale-[0.98] disabled:opacity-50"
+                className="w-full h-[56px] rounded-[12px] flex items-center justify-center shadow-[4px_4px_15px_rgba(247,75,51,0.3)] disabled:opacity-50"
               >
                 {isProcessing ? (
                     <span className="font-inter font-bold text-[14px] text-[#FFFFFF] uppercase tracking-wide">SYNCING...</span>
                 ) : (
                     <span className="font-inter font-bold text-[14px] text-[#FFFFFF] uppercase tracking-wide">ACCEPT & START SESSION</span>
                 )}
-              </button>
+              </motion.button>
 
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-    </div>
+    </motion.div>
   );
 }

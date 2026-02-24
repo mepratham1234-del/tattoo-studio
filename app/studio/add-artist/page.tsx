@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Trash2, UserCircle, Loader2, UserPlus, KeyRound } from 'lucide-react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // UI Wrapper for Inputs
 const GradientInputWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -31,7 +32,6 @@ export default function AddArtistPage() {
   useEffect(() => {
     const fetchArtists = async () => {
       try {
-        // Query only 'artist' roles, ignore 'owner'
         const q = query(collection(db, 'staff'), where('role', '==', 'artist'));
         const querySnapshot = await getDocs(q);
         
@@ -57,21 +57,17 @@ export default function AddArtistPage() {
     setIsAdding(true);
     
     try {
-      // Create the Staff Document
       const newArtist = {
         name: name,
-        pin: pin, // This allows them to login
-        role: 'artist', // Critical for filtering
-        profile: '2', // Default to Standard pricing
+        pin: pin, 
+        role: 'artist', 
+        profile: '2', 
         createdAt: new Date().toISOString()
       };
 
       const docRef = await addDoc(collection(db, 'staff'), newArtist);
-      
-      // Update UI Instantly
       setArtists([{ id: docRef.id, ...newArtist }, ...artists]);
       
-      // Reset Form
       setName('');
       setPin('');
     } catch (error) {
@@ -93,21 +89,25 @@ export default function AddArtistPage() {
       await deleteDoc(doc(db, 'staff', id));
     } catch (error) {
       console.error("Error deleting artist:", error);
-      setArtists(previousArtists); // Revert on error
+      setArtists(previousArtists); 
       alert("Failed to delete artist.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[80px]">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[80px]"
+    >
       
       {/* HEADER */}
       <header className="flex items-center mb-[40px]">
-        <button onClick={() => router.back()} className="p-2 -ml-2 mr-[8px] active:scale-90 transition-transform">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={() => router.back()} className="p-2 -ml-2 mr-[8px]">
           <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
           </svg>
-        </button>
+        </motion.button>
         <div className="flex flex-col">
             <h1 className="text-[24px] font-extrabold text-[#16161B] uppercase tracking-wide leading-none" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
               ADD ARTIST
@@ -117,7 +117,12 @@ export default function AddArtistPage() {
       </header>
 
       {/* ADD NEW ARTIST FORM */}
-      <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}>
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0, 0, 0, 0.08)' }}
+      >
         <div className="bg-[#FFFFFF] rounded-[15px] p-[24px] w-full flex flex-col">
           
           <h2 className="font-inter text-[16px] font-bold text-[#16161B] mb-[20px]">
@@ -162,12 +167,13 @@ export default function AddArtistPage() {
           </div>
 
           {/* Submit Button */}
-          <button 
+          <motion.button 
+            whileTap={{ scale: 0.98 }}
             onClick={handleAddArtist}
             disabled={!name || pin.length < 4 || isAdding}
             style={{ background: name && pin.length >= 4 ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : '#EAEAEA' }}
             className={`w-full h-[48px] rounded-full mt-[32px] flex items-center justify-center transition-all ${
-              name && pin.length >= 4 ? 'shadow-[0_4px_15px_rgba(247,75,51,0.25)] active:scale-[0.98]' : 'opacity-50'
+              name && pin.length >= 4 ? 'shadow-[0_4px_15px_rgba(247,75,51,0.25)]' : 'opacity-50'
             }`}
           >
             {isAdding ? (
@@ -177,10 +183,10 @@ export default function AddArtistPage() {
                 <UserPlus size={18} /> Create Account
               </span>
             )}
-          </button>
+          </motion.button>
 
         </div>
-      </div>
+      </motion.div>
 
       {/* CURRENT ARTISTS LIST */}
       <div className="mt-[40px]">
@@ -198,8 +204,13 @@ export default function AddArtistPage() {
                 <p className="font-inter text-[12px] text-[#666666]">No staff found.</p>
               </div>
             ) : (
-              artists.map((artist) => (
-                <div 
+              <AnimatePresence>
+              {artists.map((artist) => (
+                <motion.div 
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
                   key={artist.id} 
                   className="bg-gray-50 rounded-[12px] p-[16px] flex items-center justify-between border border-gray-100"
                 >
@@ -213,18 +224,20 @@ export default function AddArtistPage() {
                     </div>
                   </div>
                   
-                  <button 
+                  <motion.button 
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => handleDeleteArtist(artist.id)}
-                    className="w-[32px] h-[32px] rounded-full flex items-center justify-center bg-[#F74B33]/10 text-[#F74B33] hover:bg-[#F74B33]/20 active:scale-95 transition-all"
+                    className="w-[32px] h-[32px] rounded-full flex items-center justify-center bg-[#F74B33]/10 text-[#F74B33] hover:bg-[#F74B33]/20 transition-all"
                   >
                     <Trash2 size={14} strokeWidth={2} />
-                  </button>
-                </div>
-              ))
+                  </motion.button>
+                </motion.div>
+              ))}
+              </AnimatePresence>
             )}
         </div>
       </div>
 
-    </div>
+    </motion.div>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Landmark, ShieldCheck, Plus, Trash2, CheckCircle2, QrCode } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface BankAccount {
   id: string;
@@ -16,9 +17,6 @@ interface BankAccount {
   isDefault: boolean;
 }
 
-// ----------------------------------------------------------------------
-// CRITICAL FIX: Component defined OUTSIDE to prevent keyboard focus loss
-// ----------------------------------------------------------------------
 const GradientInputWrapper = ({ children }: { children: React.ReactNode }) => (
   <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '9999px' }}>
     <div className="bg-[#FFFFFF] rounded-full overflow-hidden h-[48px] flex items-center">
@@ -72,8 +70,8 @@ export default function BankDetailsPage() {
       accountNumber,
       ifscCode: ifscCode.toUpperCase(),
       bankName,
-      upiId: upiId.toLowerCase(), // Ensure lowercase for UPI standards
-      isDefault: accounts.length === 0 // First account is auto-default
+      upiId: upiId.toLowerCase(),
+      isDefault: accounts.length === 0 
     };
 
     const updatedAccounts = [...accounts, newAccount];
@@ -85,7 +83,6 @@ export default function BankDetailsPage() {
       });
 
       setAccounts(updatedAccounts);
-      // Reset Form
       setAccountName('');
       setAccountNumber('');
       setIfscCode('');
@@ -100,7 +97,7 @@ export default function BankDetailsPage() {
     }
   };
 
-  // 3. SET DEFAULT STUDIO ACCOUNT
+  // 3. SET DEFAULT
   const handleSetDefault = async (id: string) => {
     const updatedAccounts = accounts.map(acc => ({
       ...acc,
@@ -117,7 +114,6 @@ export default function BankDetailsPage() {
     if(!confirm("Remove this bank account?")) return;
     
     const updatedAccounts = accounts.filter(acc => acc.id !== id);
-    // If we deleted the default, make the first available one the new default
     if (updatedAccounts.length > 0 && !updatedAccounts.some(acc => acc.isDefault)) {
         updatedAccounts[0].isDefault = true;
     }
@@ -128,15 +124,18 @@ export default function BankDetailsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[100px]">
+    <motion.div 
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen bg-[#FFFFFF] font-sans px-[24px] pt-[40px] pb-[100px]"
+    >
       
       {/* HEADER */}
       <header className="flex items-center mb-[32px]">
-        <button onClick={() => router.back()} className="p-2 -ml-2 mr-[8px] active:scale-90 transition-transform">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={() => router.back()} className="p-2 -ml-2 mr-[8px]">
           <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M13 1.5L2.5 9L13 16.5V1.5Z" fill="#16161B" stroke="#16161B" strokeWidth="2" strokeLinejoin="round"/>
           </svg>
-        </button>
+        </motion.button>
         <div className="flex flex-col">
             <h1 className="text-[24px] font-extrabold text-[#16161B] uppercase tracking-wide leading-none" style={{ fontFamily: 'var(--font-abhaya), serif' }}>
                 BANK DETAILS
@@ -160,7 +159,11 @@ export default function BankDetailsPage() {
               
               {/* ACCOUNT LIST */}
               {accounts.map((acc) => (
-                  <div key={acc.id} style={{ background: acc.isDefault ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0,0,0,0.05)' }}>
+                  <motion.div 
+                    layout
+                    key={acc.id} 
+                    style={{ background: acc.isDefault ? 'linear-gradient(-45deg, #F74B33, #FFB6AB)' : 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px', boxShadow: '4px 4px 10px rgba(0,0,0,0.05)' }}
+                  >
                       <div className="bg-[#FFFFFF] rounded-[15px] p-[20px] relative overflow-hidden">
                           <Landmark size={80} className="absolute -right-4 -bottom-4 text-gray-100 opacity-50 pointer-events-none" />
                           
@@ -197,20 +200,28 @@ export default function BankDetailsPage() {
                               )}
                           </div>
                       </div>
-                  </div>
+                  </motion.div>
               ))}
 
               {/* ADD BUTTON */}
               {!isAddingMode && accounts.length < 4 && (
-                  <button onClick={() => setIsAddingMode(true)} className="w-full h-[60px] border-2 border-dashed border-[#BDBDBD] rounded-[16px] flex items-center justify-center gap-2 text-[#666666] hover:border-[#16161B] hover:text-[#16161B] transition-colors active:scale-[0.98]">
+                  <motion.button 
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsAddingMode(true)} 
+                    className="w-full h-[60px] border-2 border-dashed border-[#BDBDBD] rounded-[16px] flex items-center justify-center gap-2 text-[#666666] hover:border-[#16161B] hover:text-[#16161B] transition-colors"
+                  >
                       <Plus size={20} />
                       <span className="font-inter text-[14px] font-bold uppercase tracking-wide">Link New Account</span>
-                  </button>
+                  </motion.button>
               )}
 
               {/* ADD FORM */}
+              <AnimatePresence>
               {isAddingMode && (
-                <div style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px' }} className="mt-4 shadow-xl mb-12">
+                <motion.div 
+                    initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                    style={{ background: 'linear-gradient(-45deg, #BDBDBD, #4F4F4F)', padding: '1px', borderRadius: '16px' }} className="mt-4 shadow-xl mb-12"
+                >
                     <div className="bg-[#FFFFFF] rounded-[15px] p-[24px] flex flex-col gap-[16px]">
                         <h2 className="font-inter text-[16px] font-bold text-[#16161B] mb-2">New Account Details</h2>
                         
@@ -256,10 +267,11 @@ export default function BankDetailsPage() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
           </div>
       )}
-    </div>
+    </motion.div>
   );
 }
